@@ -1,6 +1,7 @@
 import type { Service } from '../../types/catalog';
 import { Card } from '../ui/Card';
 import { Badge, StatusBadge } from '../ui/Badge';
+import { getServiceImage } from '../../utils/images';
 
 interface ServiceCardProps {
   service: Service;
@@ -17,6 +18,7 @@ export function ServiceCard({ service }: ServiceCardProps) {
 
   return (
     <Card
+      imageUrl={getServiceImage(service.name, service.id)}
       imageAlt={service.name}
       cornerBadge={<StatusBadge isActive={service.isActive} />}
       footerLabel="View elements"

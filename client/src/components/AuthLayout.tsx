@@ -1,110 +1,54 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { AUTH_IMAGE_LOGIN, AUTH_IMAGE_REGISTER } from '../utils/images';
 
-interface AuthLayoutProps {
-  illustrationSide: 'left' | 'right';
-  children: ReactNode;
-}
+interface AuthLayoutProps { illustrationSide: 'left' | 'right'; children: ReactNode; }
 
-function CalendarCheckIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="5" width="22" height="19" rx="4" fill="#4F46E5" />
-      <rect x="3" y="5" width="22" height="6" rx="3" fill="#3730A3" />
-      <path d="M9 15.5L12.2 18.7L19 11.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function BookingIllustration() {
-  return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden rounded-2xl bg-[#F1F2FA]">
-      {/* soft decorative blobs */}
-      <div className="absolute -top-10 -left-10 w-56 h-56 rounded-full bg-[#E0E4FB]" />
-      <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-[#FDE9E6] opacity-70" />
-
-      <svg viewBox="0 0 340 340" className="relative w-3/4 max-w-sm drop-shadow-xl">
-        {/* calendar card */}
-        <rect x="50" y="60" width="240" height="220" rx="20" fill="white" stroke="#E5E7EB" strokeWidth="2" />
-        <rect x="50" y="60" width="240" height="56" rx="20" fill="#4F46E5" />
-        <rect x="50" y="96" width="240" height="20" fill="#4F46E5" />
-        <circle cx="90" cy="88" r="6" fill="#C7D2FE" />
-        <circle cx="250" cy="88" r="6" fill="#C7D2FE" />
-
-        {/* grid dots representing days */}
-        {Array.from({ length: 4 }).map((_, row) =>
-          Array.from({ length: 6 }).map((_, col) => {
-            const x = 78 + col * 32;
-            const y = 148 + row * 30;
-            const isHighlighted = row === 1 && col === 3;
-            return (
-              <rect
-                key={`${row}-${col}`}
-                x={x}
-                y={y}
-                width="20"
-                height="20"
-                rx="5"
-                fill={isHighlighted ? '#FB7185' : '#EEF0FA'}
-              />
-            );
-          })
-        )}
-
-        {/* floating clock badge */}
-        <g transform="translate(230, 220)">
-          <circle cx="0" cy="0" r="34" fill="white" stroke="#E5E7EB" strokeWidth="2" />
-          <circle cx="0" cy="0" r="24" fill="#FDE9E6" />
-          <path d="M0 -14V0L10 8" stroke="#FB7185" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </g>
-
-        {/* floating check badge */}
-        <g transform="translate(60, 250)">
-          <circle cx="0" cy="0" r="26" fill="white" stroke="#E5E7EB" strokeWidth="2" />
-          <circle cx="0" cy="0" r="18" fill="#DCFCE7" />
-          <path d="M-7 0L-2 6L8 -6" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-export default function AuthLayout({ illustrationSide, children }: AuthLayoutProps) {
+export default function AuthLayout({ illustrationSide, children }: AuthLayoutProps){
+  const image = illustrationSide==='left' ? AUTH_IMAGE_REGISTER : AUTH_IMAGE_LOGIN;
   const form = (
-    <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 lg:px-16">
-      <div className="w-full max-w-sm">{children}</div>
-    </div>
-  );
-
-  const illustration = (
-    <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-10">
-      <div className="w-full h-[520px]">
-        <BookingIllustration />
+    <div className="w-full lg:w-[520px] flex items-center justify-center px-6 py-10 lg:px-10">
+      <div className="w-full max-w-sm">
+        <Link to="/" className="mb-8 inline-flex items-center gap-2 text-sm font-extrabold tracking-tight text-slate-900">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18" strokeLinecap="round"/><path d="M8 3v3M16 3v3" strokeLinecap="round"/><path d="M8.5 14l2 2 4.5-4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
+          Reservo
+          <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-bold tracking-widest text-white">MARKETPLACE</span>
+        </Link>
+        {children}
       </div>
     </div>
   );
-
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="px-6 pt-8 lg:px-16">
-        <div className="flex items-center gap-2">
-          <CalendarCheckIcon />
-          <span className="text-xl font-bold text-slate-900 tracking-tight">Reservo</span>
+  const visual = (
+    <div className="hidden lg:flex flex-1 relative overflow-hidden bg-slate-900">
+      <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90"/>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"/>
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/30 via-transparent to-transparent"/>
+      <div className="relative flex w-full flex-col justify-between p-10">
+        <div className="rounded-2xl bg-white/10 backdrop-blur p-4 text-white ring-1 ring-white/20 max-w-sm">
+          <div className="text-xs font-bold uppercase tracking-widest text-white/70">Why Reservo</div>
+          <div className="mt-2 font-display text-xl font-bold leading-tight">Every slot is real.<br/>Every booking is instant.</div>
+          <div className="mt-2 text-sm leading-6 text-white/80">No double-bookings. Providers publish availability, you pick a time, we lock it with tstzrange.</div>
+          <div className="mt-4 flex items-center gap-2">
+            <img src="https://i.pravatar.cc/100?img=32" alt="" className="h-7 w-7 rounded-full object-cover ring-2 ring-white/20"/>
+            <img src="https://i.pravatar.cc/100?img=33" alt="" className="h-7 w-7 -ml-2 rounded-full object-cover ring-2 ring-white/20"/>
+            <span className="ml-2 text-xs font-semibold">2,400+ bookings this month</span>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-xl max-w-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">✓</div>
+            <div><div className="text-sm font-bold text-slate-900">Booking confirmed</div><div className="text-xs text-slate-500">Today 14:00–16:00 · Studio A</div></div>
+            <span className="ml-auto rounded-full bg-slate-900 px-2.5 py-1 text-xs font-bold text-white">Confirmed</span>
+          </div>
         </div>
       </div>
-
-      <div className="flex-1 flex flex-col lg:flex-row">
-        {illustrationSide === 'left' ? (
-          <>
-            {illustration}
-            {form}
-          </>
-        ) : (
-          <>
-            {form}
-            {illustration}
-          </>
-        )}
-      </div>
+    </div>
+  );
+  return (
+    <div className="min-h-screen bg-[#fcfcfd] flex">
+      {illustrationSide==='left' ? <>{visual}{form}</> : <>{form}{visual}</>}
     </div>
   );
 }

@@ -1,9 +1,27 @@
 @import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+* { font-family: var(--font-body); }
+h1, h2, h3, .font-display { font-family: var(--font-display); }
+
+/* Smooth scrolling + selection */
+html { scroll-behavior: smooth; }
+::selection { background: #e0e7ff; color: #4338ca; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+
+/* ── FullCalendar themes ── */
 .fc-dark-theme {
-  --fc-border-color: #334155;           /* slate-700 */
+  --fc-border-color: #334155;
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: #1e293b;       /* slate-800 */
-  --fc-neutral-text-color: #e2e8f0;     /* slate-200 */
+  --fc-neutral-bg-color: #1e293b;
+  --fc-neutral-text-color: #e2e8f0;
   --fc-today-bg-color: rgba(59, 130, 246, 0.08);
   --fc-event-text-color: #ffffff;
   --fc-button-bg-color: #334155;
@@ -13,49 +31,46 @@
   --fc-button-active-bg-color: #2563eb;
   font-family: inherit;
 }
-
 .fc-dark-theme .fc-col-header-cell-cushion,
 .fc-dark-theme .fc-daygrid-day-number,
 .fc-dark-theme .fc-timegrid-slot-label-cushion,
-.fc-dark-theme .fc-toolbar-title {
-  color: #e2e8f0;
-}
-
+.fc-dark-theme .fc-toolbar-title { color: #e2e8f0; }
 .fc-dark-theme .fc-daygrid-day.fc-day-today,
-.fc-dark-theme .fc-timegrid-col.fc-day-today {
-  background-color: rgba(59, 130, 246, 0.08);
-}
+.fc-dark-theme .fc-timegrid-col.fc-day-today { background-color: rgba(59, 130, 246, 0.08); }
 
-/* Light theme — used by ElementDetail / ManageElement going forward */
 .fc-light-theme {
-  --fc-border-color: #e2e8f0;           /* slate-200 */
+  --fc-border-color: #e2e8f0;
   --fc-page-bg-color: transparent;
-  --fc-neutral-bg-color: #f8fafc;       /* slate-50 */
-  --fc-neutral-text-color: #334155;     /* slate-700 */
+  --fc-neutral-bg-color: #f8fafc;
+  --fc-neutral-text-color: #334155;
   --fc-today-bg-color: rgba(79, 70, 229, 0.06);
   --fc-event-text-color: #ffffff;
-  --fc-button-bg-color: #4f46e5;        /* indigo-600 */
+  --fc-button-bg-color: #4f46e5;
   --fc-button-border-color: #4f46e5;
-  --fc-button-hover-bg-color: #4338ca;  /* indigo-700 */
+  --fc-button-hover-bg-color: #4338ca;
   --fc-button-hover-border-color: #4338ca;
   --fc-button-active-bg-color: #4338ca;
+  --fc-button-text-color: #ffffff;
   font-family: inherit;
 }
-
 .fc-light-theme .fc-col-header-cell-cushion,
 .fc-light-theme .fc-daygrid-day-number,
 .fc-light-theme .fc-timegrid-slot-label-cushion,
-.fc-light-theme .fc-toolbar-title {
-  color: #1e293b; /* slate-800 */
-}
-
+.fc-light-theme .fc-toolbar-title { color: #1e293b; }
 .fc-light-theme .fc-daygrid-day.fc-day-today,
-.fc-light-theme .fc-timegrid-col.fc-day-today {
-  background-color: rgba(79, 70, 229, 0.06);
-}
+.fc-light-theme .fc-timegrid-col.fc-day-today { background-color: rgba(79, 70, 229, 0.06); }
+.fc-light-theme .fc-highlight { background: rgba(79, 70, 229, 0.18); }
 
-/* Drag-to-select highlight (interactionPlugin) — shown while dragging on the
-   calendar, before a booking is confirmed. */
-.fc-light-theme .fc-highlight {
-  background: rgba(79, 70, 229, 0.18); /* indigo-600 @ 18% */
+/* Polish FullCalendar */
+.fc .fc-button { border-radius: 9999px !important; padding: 6px 14px !important; font-size: 13px !important; font-weight: 600 !important; text-transform: capitalize; }
+.fc .fc-toolbar-title { font-family: var(--font-display); font-weight: 700 !important; font-size: 18px !important; }
+
+/* Subtle card hover */
+.card-hover { transition: transform .2s ease, box-shadow .2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -10px rgba(15,23,42,.12), 0 4px 8px -4px rgba(15,23,42,.06); }
+
+/* Shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }

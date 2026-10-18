@@ -19,7 +19,7 @@ function App() {
   const location = useLocation();
   const hideNavbar = location.pathname === '/login' || location.pathname === '/register';
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-[#fcfcfd] text-slate-900 antialiased">
       {!hideNavbar && <Navbar />}
 
       <Routes>
@@ -39,9 +39,7 @@ function App() {
         <Route path="/admin/categories" element={<CategoryManagement />} />
       </Routes>
     </div>
-    
   );
-  
 }
 
 export default App;

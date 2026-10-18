@@ -67,7 +67,7 @@ export default function MyBookings() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">
             <Link to="/login" className="font-medium text-indigo-600 hover:underline">
@@ -82,9 +82,9 @@ export default function MyBookings() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#fcfcfd]">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Bookings</h1>
+        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My bookings</h1>
 
         {cancelError && (
           <p className="mt-4 text-sm text-amber-600">{cancelError}</p>

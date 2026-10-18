@@ -187,7 +187,7 @@ export default function ManageElement() {
 
   if (!user || (user.role !== 'Provider' && user.role !== 'Admin')) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">You don't have access to this page.</p>
         </div>
@@ -198,7 +198,7 @@ export default function ManageElement() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           <div className="h-8 w-64 animate-pulse rounded bg-slate-100" />
           <div className="mt-8 h-64 animate-pulse rounded-2xl bg-slate-100" />
@@ -210,7 +210,7 @@ export default function ManageElement() {
 
   if (error || !element) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-10 text-center">
             <p className="font-semibold text-rose-700">Couldn't load this element</p>
@@ -253,7 +253,7 @@ export default function ManageElement() {
     }));
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#fcfcfd]">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

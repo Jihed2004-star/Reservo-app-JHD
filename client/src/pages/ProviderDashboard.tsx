@@ -17,7 +17,7 @@ export default function ProviderDashboard() {
 
   if (!user || (user.role !== 'Provider' && user.role !== 'Admin')) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">You don't have access to this page.</p>
         </div>
@@ -27,7 +27,7 @@ export default function ProviderDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#fcfcfd]">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My Services</h1>

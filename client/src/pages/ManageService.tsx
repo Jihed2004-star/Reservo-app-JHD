@@ -87,7 +87,7 @@ export default function ManageService() {
 
   if (!user || (user.role !== 'Provider' && user.role !== 'Admin')) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">You don't have access to this page.</p>
         </div>
@@ -98,7 +98,7 @@ export default function ManageService() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
           <div className="h-8 w-64 animate-pulse rounded bg-slate-100" />
           <div className="mt-8">
@@ -112,7 +112,7 @@ export default function ManageService() {
 
   if (error || !service) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-[#fcfcfd]">
         <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-10 text-center">
             <p className="font-semibold text-rose-700">Couldn't load this service</p>
@@ -127,7 +127,7 @@ export default function ManageService() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#fcfcfd]">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
