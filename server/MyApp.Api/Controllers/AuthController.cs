@@ -22,6 +22,12 @@ public class AuthController : ControllerBase
         _jwtService = jwtService;
     }
 
+    [HttpGet("bla")]
+    public IActionResult Index()
+    {
+        return Ok("Auth API is running");
+    }
+
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
