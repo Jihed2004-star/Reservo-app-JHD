@@ -1,2 +1,53 @@
+# ========================
+# .NET / C#
+# ========================
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
 
+# User secrets (dotnet user-secrets)
+**/Properties/launchSettings.json
+
+# NuGet
+*.nupkg
+**/packages/
+
+# ========================
+# Node.js / Frontend
+# ========================
+**/node_modules/
+client/dist/
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# IDE / Editor
+# ========================
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ========================
+# OS
+# ========================
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ========================
+# Misc
+# ========================
+*.log
 .fake
