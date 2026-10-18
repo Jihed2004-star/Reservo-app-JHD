@@ -1,5 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
+import { getCategories } from '../api/catalog';
+import { CategoryCard } from '../components/cards/CategoryCard';
+import { CardSkeletonGrid } from '../components/ui/CardSkeleton';
 import Footer from '../components/Footer';
 
 function HeroIllustration() {
@@ -69,6 +73,11 @@ const STEPS = [
 ];
 
 export default function Home() {
+  const { data: categories, isLoading, error } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+  });
+
   return (
     <div className="bg-white">
       
@@ -85,7 +94,7 @@ export default function Home() {
               categories, pick a time, and you're booked in seconds.
             </p>
             <Link
-              to="/Categories"
+              to="/categories"
               className="mt-8 inline-block rounded-xl bg-white px-6 py-3 text-sm font-semibold text-indigo-600 transition-colors hover:bg-indigo-50"
             >
               Browse categories
@@ -131,25 +140,65 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Category push — static CTA for now; can become live cards once the
-          categories query hook is available to Home. */}
+      {/* Category push — featured 3 categories + CTA */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <div className="flex flex-col items-start justify-between gap-6 rounded-3xl border border-slate-200 bg-slate-50 px-8 py-12 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
               Ready to see what's available?
             </h2>
-            <p className="mt-2 max-w-md text-sm text-slate-500">
+            <p className="mt-2 max-w-xl text-sm text-slate-500">
               Every category on Reservo is run by a real provider with a live
               calendar — explore what's bookable right now.
             </p>
           </div>
           <Link
-            to="/Categories"
-            className="shrink-0 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+            to="/categories"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
           >
             View all categories
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
+                clipRule="evenodd"
+              />
+            </svg>
           </Link>
+        </div>
+
+        <div className="mt-8">
+          {isLoading && <CardSkeletonGrid count={3} />}
+
+          {error && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+              Unable to load categories right now.
+            </div>
+          )}
+
+          {!isLoading && !error && categories && categories.length > 0 && (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {categories.slice(0, 3).map((category) => (
+                <CategoryCard key={category.id} category={category} />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && !error && (!categories || categories.length === 0) && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+              <p className="text-base font-semibold text-slate-800">
+                No categories available yet
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Check back soon as providers add new services and categories.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

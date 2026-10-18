@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getElementById, getAvailability, getBookedRanges, createBooking } from '../api/elements';
 import { getReviewsByElement, getRatingSummary } from '../api/reviews';
@@ -17,6 +17,7 @@ import '../index.css';
 
 export default function ElementDetail() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -24,6 +25,23 @@ export default function ElementDetail() {
   const [endTime, setEndTime] = useState('');
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  // Restore any pending booking selected before login
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const saved = sessionStorage.getItem('pending_booking');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.elementId === id && parsed.startTime && parsed.endTime) {
+          setStartTime(parsed.startTime);
+          setEndTime(parsed.endTime);
+        }
+      }
+    } catch {
+      // ignore parsing error
+    }
+  }, [id]);
 
   const { data: element, isLoading, error } = useQuery({
     queryKey: ['element', id],
@@ -60,6 +78,7 @@ export default function ElementDetail() {
     onSuccess: () => {
       setBookingSuccess(true);
       setBookingError(null);
+      sessionStorage.removeItem('pending_booking');
       queryClient.invalidateQueries({ queryKey: ['availability', id] });
       queryClient.invalidateQueries({ queryKey: ['bookedRanges', id] });
     },
@@ -81,15 +100,32 @@ export default function ElementDetail() {
   }
 
   function handleSelect(info: DateSelectArg) {
+    let start = '';
+    let end = '';
     if (info.allDay) {
-      setStartTime(`${info.startStr}T00:00:00.000Z`);
-      setEndTime(`${info.endStr}T00:00:00.000Z`);
+      start = `${info.startStr}T00:00:00.000Z`;
+      end = `${info.endStr}T00:00:00.000Z`;
     } else {
-      setStartTime(info.start.toISOString());
-      setEndTime(info.end.toISOString());
+      start = info.start.toISOString();
+      end = info.end.toISOString();
     }
+
+    setStartTime(start);
+    setEndTime(end);
     setBookingSuccess(false);
     setBookingError(null);
+
+    // Save pending booking so it survives login/redirect
+    if (id) {
+      sessionStorage.setItem(
+        'pending_booking',
+        JSON.stringify({
+          elementId: id,
+          startTime: start,
+          endTime: end,
+        })
+      );
+    }
   }
 
   function handleClearSelection() {
@@ -97,6 +133,7 @@ export default function ElementDetail() {
     setEndTime('');
     setBookingSuccess(false);
     setBookingError(null);
+    sessionStorage.removeItem('pending_booking');
   }
 
   if (isLoading) {
@@ -223,7 +260,7 @@ export default function ElementDetail() {
               <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView={element.bookingUnit === 'Hourly' ? 'timeGridWeek' : 'dayGridMonth'}
-                selectable={!!user}
+                selectable={true}
                 select={handleSelect}
                 events={[
                   ...(slots?.map((slot) => ({
@@ -293,12 +330,43 @@ export default function ElementDetail() {
                 )}
               </div>
             ) : (
-              <p className="mt-6 border-t border-slate-200 pt-6 text-sm text-slate-500">
-                <Link to="/login" className="font-medium text-indigo-600 hover:underline">
-                  Log in
-                </Link>{' '}
-                to book this element.
-              </p>
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+                  Book this element
+                </h2>
+
+                {startTime && endTime ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+                    <div className="text-sm">
+                      <p className="font-medium text-indigo-900">Selected time</p>
+                      <p className="text-indigo-600">
+                        {new Date(startTime).toLocaleString()} — {new Date(endTime).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleClearSelection}
+                      className="shrink-0 text-xs font-medium text-indigo-500 hover:text-indigo-700"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">
+                    Select an open time slot on the calendar above, then log in to reserve it.
+                  </p>
+                )}
+
+                <Link
+                  to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
+                  state={{ from: location.pathname }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 shadow-sm"
+                >
+                  Log in to book
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                    <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
             )}
           </div>
         </div>

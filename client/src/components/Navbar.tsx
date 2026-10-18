@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSidebar } from '../context/SidebarContext';
 import { LogoMark } from './ui/LogoMark';
 
 function navLinkClass(isActive: boolean) {
@@ -100,6 +101,7 @@ function ManageDropdown({ links }: { links: ManageLink[] }) {
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { toggle } = useSidebar();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -117,15 +119,31 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+    <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/Categories"
-          className="flex items-center gap-2 text-base font-bold text-slate-900 transition-colors hover:text-indigo-600"
-        >
-          <LogoMark />
-          Reservo
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {user && (
+            <button
+              type="button"
+              onClick={toggle}
+              title="Toggle sidebar"
+              className="p-2 rounded-xl text-[#5C6BC0] hover:bg-[#E8EAF6] hover:text-[#3949AB] transition-colors"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          )}
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-base font-bold text-slate-900 transition-colors hover:text-indigo-600"
+          >
+            <LogoMark className="h-8 w-8 object-contain" />
+            Reservo
+          </Link>
+        </div>
 
         <div className="flex flex-wrap items-center gap-1">
           <NavLink to="/" className={({ isActive }) => navLinkClass(isActive)}>

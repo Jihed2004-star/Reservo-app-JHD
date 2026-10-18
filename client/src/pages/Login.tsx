@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { login as loginApi } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
@@ -13,6 +13,11 @@ export default function Login() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  // Check if guest was redirected from an element or other page
+  const redirectTarget = (location.state as any)?.from || searchParams.get('redirect') || '/';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -22,7 +27,7 @@ export default function Login() {
     try {
       const response = await loginApi({ email, password });
       login(response);
-      navigate('/');
+      navigate(redirectTarget, { replace: true });
     } catch {
       setError('Invalid email or password.');
     } finally {
@@ -97,7 +102,11 @@ export default function Login() {
 
       <p className="text-sm text-slate-500 mt-6 text-center">
         Don't have an account?{' '}
-        <Link to="/register" className="text-rose-500 font-medium hover:text-rose-600">
+        <Link
+          to={redirectTarget !== '/' ? `/register?redirect=${encodeURIComponent(redirectTarget)}` : '/register'}
+          state={{ from: redirectTarget }}
+          className="text-rose-500 font-medium hover:text-rose-600"
+        >
           Sign up
         </Link>
       </p>

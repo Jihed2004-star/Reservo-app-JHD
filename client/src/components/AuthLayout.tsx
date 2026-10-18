@@ -1,18 +1,10 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { LogoMark } from './ui/LogoMark';
 
 interface AuthLayoutProps {
   illustrationSide: 'left' | 'right';
   children: ReactNode;
-}
-
-function CalendarCheckIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="5" width="22" height="19" rx="4" fill="#4F46E5" />
-      <rect x="3" y="5" width="22" height="6" rx="3" fill="#3730A3" />
-      <path d="M9 15.5L12.2 18.7L19 11.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
 }
 
 function BookingIllustration() {
@@ -86,10 +78,10 @@ export default function AuthLayout({ illustrationSide, children }: AuthLayoutPro
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <div className="px-6 pt-8 lg:px-16">
-        <div className="flex items-center gap-2">
-          <CalendarCheckIcon />
+        <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+          <LogoMark className="h-8 w-8 object-contain" />
           <span className="text-xl font-bold text-slate-900 tracking-tight">Reservo</span>
-        </div>
+        </Link>
       </div>
 
       <div className="flex-1 flex flex-col lg:flex-row">

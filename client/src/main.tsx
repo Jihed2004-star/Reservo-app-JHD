@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import { AuthProvider } from './context/AuthContext.tsx';
+import { SidebarProvider } from './context/SidebarContext.tsx';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <SidebarProvider>
+            <App />
+          </SidebarProvider>
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>
