@@ -1,0 +1,11 @@
+---
+- name: Provision AWS EC2 Server for Reservo Deployment
+  hosts: webservers
+  become: true
+  vars_files:
+    - "{{ 'vars/secrets.yml' }}"
+  roles:
+    - docker
+    - postgres
+    - nginx
+    - certbot

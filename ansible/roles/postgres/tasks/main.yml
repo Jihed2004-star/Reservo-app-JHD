@@ -1,0 +1,47 @@
+---
+- name: Install Python Docker SDK for Ansible container management
+  apt:
+    name: python3-docker
+    state: present
+    update_cache: yes
+
+- name: Create persistent directories for PostgreSQL data and init scripts
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user | default('ubuntu') }}"
+    group: "{{ ansible_user | default('ubuntu') }}"
+    mode: '0755'
+  loop:
+    - "{{ app_data_dir | default('/opt/reservo') }}/postgres/data"
+    - "{{ app_data_dir | default('/opt/reservo') }}/postgres/init"
+
+- name: Copy PostgreSQL extension init.sql to server
+  copy:
+    src: init.sql
+    dest: "{{ app_data_dir | default('/opt/reservo') }}/postgres/init/01-init.sql"
+    owner: "{{ ansible_user | default('ubuntu') }}"
+    group: "{{ ansible_user | default('ubuntu') }}"
+    mode: '0644'
+
+- name: Launch permanent PostgreSQL container on shared network
+  community.docker.docker_container:
+    name: reservo-postgres
+    image: postgres:16-alpine
+    state: started
+    restart_policy: unless-stopped
+    networks:
+      - name: "{{ docker_network_name | default('reservo-net') }}"
+    env:
+      POSTGRES_USER: "{{ db_user | default('reservo_user') }}"
+      POSTGRES_PASSWORD: "{{ db_password }}"
+      POSTGRES_DB: "{{ db_name | default('reservo') }}"
+    volumes:
+      - "{{ app_data_dir | default('/opt/reservo') }}/postgres/data:/var/lib/postgresql/data"
+      - "{{ app_data_dir | default('/opt/reservo') }}/postgres/init/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ db_user | default('reservo_user') }} -d {{ db_name | default('reservo') }}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s

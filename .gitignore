@@ -55,3 +55,7 @@ Desktop.ini
 ===================
 Understand
 =================
+
+# Ansible Secrets
+ansible/vars/secrets.yml
+ansible/vars/secrets.yaml

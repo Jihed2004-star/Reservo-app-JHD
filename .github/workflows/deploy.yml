@@ -1,0 +1,100 @@
+name: CI/CD Pipeline - Build & Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE_API: ${{ secrets.DOCKERHUB_USERNAME }}/reservo-api
+  DOCKER_IMAGE_CLIENT: ${{ secrets.DOCKERHUB_USERNAME }}/reservo-client
+
+jobs:
+  # =========================================================================
+  # 1. BUILD & PUSH DOCKER IMAGES
+  # =========================================================================
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Build and push Backend (.NET 10 API)
+      - name: Build Backend API Image
+        run: docker build -t ${{env.DOCKER_IMAGE_API}}:${{github.run_number}} -t ${{env.DOCKER_IMAGE_API}}:latest ./server
+
+      - name: Push Backend API Image
+        run: |
+         docker push ${{env.DOCKER_IMAGE_API}}:latest
+         docker push ${{env.DOCKER_IMAGE_API}}:${{github.run_number}}
+
+############################################################
+
+      # Build and push Frontend (React + Vite )
+      - name: Build Frontend Client Image
+        run: docker build -t ${{env.DOCKER_IMAGE_CLIENT}}:${{github.run_number}} -t ${{env.DOCKER_IMAGE_CLIENT}}:latest --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} ./client
+
+      - name: Push Frontend Client Image
+        run: |
+         docker push ${{env.DOCKER_IMAGE_CLIENT}}:latest
+         docker push ${{env.DOCKER_IMAGE_CLIENT}}:${{github.run_number}}
+
+  # =========================================================================
+  # 2. DEPLOY VIA SSH TO AWS EC2
+  # =========================================================================
+  deploy:
+    name: Deploy Containers to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute Remote SSH Commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "=== 1. Pulling latest images ==="
+            docker pull ${{ env.DOCKER_IMAGE_API }}:latest
+            docker pull ${{ env.DOCKER_IMAGE_CLIENT }}:latest
+
+            echo "=== 2. Ensuring uploads directory exists on host ==="
+            sudo mkdir -p /opt/reservo/uploads
+            sudo chown -R ${{ secrets.EC2_USER || 'ubuntu' }}:${{ secrets.EC2_USER || 'ubuntu' }} /opt/reservo/uploads
+
+            echo "=== 3. Redeploying Backend API container ==="
+            docker rm -f reservo-api || true
+            docker run -d \
+              --name reservo-api \
+              --network reservo-net \
+              -p 8000:8080 \
+              -v /opt/reservo/uploads:/app/wwwroot/uploads \
+              -e ASPNETCORE_ENVIRONMENT=Production \
+              -e "ConnectionStrings__Default=Host=reservo-postgres;Port=5432;Database=${{ secrets.POSTGRES_DB || 'reservo' }};Username=${{ secrets.POSTGRES_USER || 'reservo_user' }};Password=${{ secrets.POSTGRES_PASSWORD }}" \
+              -e "Jwt__Secret=${{ secrets.JWT_SECRET }}" \
+              -e "Jwt__Issuer=ReservoApi" \
+              -e "Jwt__ExpiryMinutes=1440" \
+              -e "Seed__Admin__Email=${{ secrets.ADMIN_EMAIL }}" \
+              -e "Seed__Admin__Password=${{ secrets.ADMIN_PASSWORD }}" \
+              -e "Seed__Admin__FullName=Reservo Administrator" \
+              ${{ env.DOCKER_IMAGE_API }}:latest
+
+            echo "=== 4. Redeploying Frontend Client container ==="
+            docker rm -f reservo-client || true
+            docker run -d \
+              --name reservo-client \
+              --network reservo-net \
+              -p 1234:80 \
+              ${{ env.DOCKER_IMAGE_CLIENT }}:latest
+
+  
