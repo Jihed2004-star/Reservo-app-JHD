@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createCategory, updateCategory, deleteCategory, getAllCategoriesAdmin, toggleCategoryActive } from '../api/catalog';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from '../components/ui/Badge';
+import { ImageUploader } from '../components/ui/ImageUploader';
 import { ListRowSkeletonGroup } from '../components/ui/ListRowSkeleton';
-import Footer from '../components/Footer';
+import { categoryImage } from '../utils/images';
 
 export default function CategoryManagement() {
   const { user } = useAuth();
@@ -12,6 +13,8 @@ export default function CategoryManagement() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [image, setImage] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -21,6 +24,8 @@ export default function CategoryManagement() {
     queryFn: getAllCategoriesAdmin,
   });
 
+  const editingCategory = categories?.find((cat) => cat.id === editingId) ?? null;
+
   const createMutation = useMutation({
     mutationFn: createCategory,
     onSuccess: resetForm,
@@ -28,7 +33,7 @@ export default function CategoryManagement() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name: string; description: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateCategory>[1] }) =>
       updateCategory(id, data),
     onSuccess: resetForm,
     onError: (err: any) => setFormError(err?.response?.data?.message ?? 'Could not update category.'),
@@ -54,6 +59,8 @@ export default function CategoryManagement() {
     setFormError(null);
     setName('');
     setDescription('');
+    setImage(null);
+    setRemoveImage(false);
     setEditingId(null);
     queryClient.invalidateQueries({ queryKey: ['categories'] });
   }
@@ -62,6 +69,8 @@ export default function CategoryManagement() {
     setEditingId(cat.id);
     setName(cat.name);
     setDescription(cat.description ?? '');
+    setImage(null);
+    setRemoveImage(false);
     setFormError(null);
   }
 
@@ -70,7 +79,7 @@ export default function CategoryManagement() {
       setFormError('Name is required.');
       return;
     }
-    const data = { name, description: description || null };
+    const data = { name, description: description || null, image, removeImage };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data });
     } else {
@@ -84,11 +93,10 @@ export default function CategoryManagement() {
 
   if (!user || user.role !== 'Admin') {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">You don't have access to this page.</p>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -96,7 +104,7 @@ export default function CategoryManagement() {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd]">
+    <div className="min-h-screen bg-[#f8fafc]">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Category Management</h1>
 
@@ -119,6 +127,19 @@ export default function CategoryManagement() {
             onChange={(e) => setDescription(e.target.value)}
             className={`${inputClass} mb-4`}
             rows={2}
+          />
+
+          <ImageUploader
+            label="Cover image"
+            existingUrl={editingCategory?.imageUrl}
+            file={image}
+            onFileChange={(next) => {
+              setImage(next);
+              if (next) setRemoveImage(false);
+            }}
+            removedExisting={removeImage}
+            onRemoveExistingChange={setRemoveImage}
+            disabled={isPending}
           />
 
           <div className="flex gap-2">
@@ -164,51 +185,48 @@ export default function CategoryManagement() {
           )}
 
           {!isLoading && !error && categories && categories.length > 0 && (
-            <ul className="space-y-3">
-              {categories.map((cat) => (
-                <li
-                  key={cat.id}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-slate-900">{cat.name}</p>
-                      <StatusBadge isActive={cat.isActive} />
-                    </div>
-                    {cat.description && (
-                      <p className="mt-0.5 text-sm text-slate-500">{cat.description}</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      onClick={() => startEdit(cat)}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => toggleMutation.mutate(cat.id)}
-                      disabled={toggleMutation.isPending}
-                      className="text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
-                    >
-                      {cat.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => deleteMutation.mutate(cat.id)}
-                      disabled={deleteMutation.isPending}
-                      className="text-sm font-medium text-rose-600 hover:text-rose-700 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-widest text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Category</th>
+                      <th className="px-4 py-3 font-semibold">Description</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                      <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {categories.map((cat) => (
+                      <tr key={cat.id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={categoryImage(cat)}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                            />
+                            <span className="font-medium text-slate-900">{cat.name}</span>
+                          </div>
+                        </td>
+                        <td className="max-w-xs truncate px-4 py-3 text-slate-500">{cat.description ?? '—'}</td>
+                        <td className="px-4 py-3"><StatusBadge isActive={cat.isActive} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            <button onClick={() => startEdit(cat)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-indigo-600 ring-1 ring-indigo-200 hover:bg-indigo-50">Edit</button>
+                            <button onClick={() => toggleMutation.mutate(cat.id)} disabled={toggleMutation.isPending} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50">{cat.isActive ? 'Deactivate' : 'Activate'}</button>
+                            <button onClick={() => deleteMutation.mutate(cat.id)} disabled={deleteMutation.isPending} className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 disabled:opacity-50">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

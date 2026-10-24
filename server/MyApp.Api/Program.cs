@@ -16,6 +16,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Auth services
 builder.Services.AddScoped<JwtService>();
 
+// Image uploads — files land in wwwroot/uploads and are served by UseStaticFiles
+builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+
 // JWT authentication - tells the API how to validate incoming tokens
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
@@ -73,12 +77,25 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// The web root must exist before the host resolves it: ASP.NET falls back to a
+// null file provider when wwwroot is missing, which would make every upload 404
+// until the next restart.
+Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     await dbContext.Database.MigrateAsync();
+
+    // A database created from scratch (fresh Docker volume) has no way in until
+    // an administrator exists, so seeding is part of startup rather than a
+    // manual `psql` step.
+    await AdminSeeder.SeedAsync(
+        dbContext,
+        builder.Configuration,
+        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(AdminSeeder)));
 }
 if (app.Environment.IsDevelopment())
 {
@@ -87,6 +104,21 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
+
+// Serves uploaded images from wwwroot. The default content-type provider does not
+// know about every image format we accept, so the mapping is extended explicitly.
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".webp"] = "image/webp";
+contentTypeProvider.Mappings[".avif"] = "image/avif";
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = contentTypeProvider,
+    OnPrepareResponse = ctx =>
+    {
+        // Uploaded files are immutable (GUID names), so they can be cached hard.
+        ctx.Context.Response.Headers.CacheControl = "public,max-age=604800";
+    }
+});
 
 // Order matters: Authentication before Authorization
 app.UseCors("AllowFrontend");

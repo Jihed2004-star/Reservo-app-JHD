@@ -38,6 +38,15 @@ public class BookingsController : ControllerBase
             return BadRequest(new { message = "ElementId does not reference an existing element." });
         }
 
+        if (element.Service.BookingUnit == BookingUnit.Hourly)
+        {
+            var duration = request.EndTime - request.StartTime;
+            if (duration < TimeSpan.FromHours(1) || Math.Abs(duration.TotalMinutes % 60) > 0.001)
+            {
+                return BadRequest(new { message = "Hourly bookings must be in full 1-hour increments (minimum 1 hour)." });
+            }
+        }
+
         var userId = GetCurrentUserId();
 
         var requestedRange = new NpgsqlRange<DateTime>(request.StartTime, true, request.EndTime, false);

@@ -1,61 +1,95 @@
-version: '3'
+# Full stack: PostgreSQL + ASP.NET API + React (nginx) + Adminer.
+#
+#   docker compose up --build        # first run (migrations + admin seed)
+#   docker compose down              # keep the data volumes
+#   docker compose down -v           # wipe database and uploads
+#
+# Ports: frontend http://localhost:1234 · API http://localhost:8000
+#        Swagger http://localhost:8000/swagger · Adminer http://localhost:8080
+#
+# Every value below can be overridden from a root `.env` file
+# (copy `.env.example` to `.env`) or from the shell.
+
+name: reservo
 
 services:
   postgres:
-    container_name: postgres
-    image: postgres
+    image: postgres:16-alpine
+    container_name: reservo-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: pass
-      POSTGRES_USER: user
-      POSTGRES_DB: myapp
+      POSTGRES_USER: ${POSTGRES_USER:-myapp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-myapp}
     ports:
-      - 5433:5432
+      - "5433:5432"
     volumes:
-      - ./server/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - myvol:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql/data
+      # Enables btree_gist, required by the booking exclusion constraint.
+      # Runs only when the data volume is empty (i.e. first start).
+      - ./server/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d myapp"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myapp_user} -d ${POSTGRES_DB:-myapp}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
+
   api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: reservo-api
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-    container_name: reservoback
-    build: 
-        context: ./server
-        dockerfile: Dockerfile
     ports:
-      - 8000:8080
+      - "8000:8080"
     environment:
-      - Jwt__Secret=U856JZ1QSrql0bH7H6WfkTGj+zez4gePlspoPQH0KxM=
-      - Jwt__Issuer=MyApp
-      - Jwt__ExpiryMinutes=1440
-      - ConnectionStrings__Default=Host=postgres;Database=myapp;Username=user;Password=pass
+      # Development keeps Swagger and detailed errors on. Set to Production to
+      # disable them (then the API answers on /api only).
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-myapp};Username=${POSTGRES_USER:-myapp_user};Password=${POSTGRES_PASSWORD:-devpassword}
+      Jwt__Secret: ${JWT_SECRET:-U856JZ1QSrql0bH7H6WfkTGj+zez4gePlspoPQH0KxM=}
+      Jwt__Issuer: ${JWT_ISSUER:-MyApp}
+      Jwt__ExpiryMinutes: ${JWT_EXPIRY_MINUTES:-1440}
+      # First administrator: created by AdminSeeder on startup, then left alone
+      # (it only re-promotes the account if the role or IsActive was changed).
+      Seed__Admin__Email: ${ADMIN_EMAIL:-admin@reservo.local}
+      Seed__Admin__Password: ${ADMIN_PASSWORD:-Admin123!}
+      Seed__Admin__FullName: ${ADMIN_NAME:-Reservo Administrator}
+    volumes:
+      # Uploaded covers and element galleries survive container re-creation.
+      - uploads:/app/wwwroot/uploads
 
   client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        # Baked into the bundle at build time and used by the browser, so it has
+        # to be the API address published on the host — not `api:8080`.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+    container_name: reservo-client
+    restart: unless-stopped
     depends_on:
       - api
-    container_name: reservofront
-    build:
-       context: ./client
-       dockerfile: Dockerfile
-       args:
-          VITE_API_URL: http://localhost:8000/api
     ports:
-      - 1234:80
-    
+      - "1234:80"
+
   adminer:
-    image: adminer
+    image: adminer:latest
+    container_name: reservo-adminer
+    restart: unless-stopped
     depends_on:
-      - postgres
-    restart: always
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
     ports:
-      - 8080:8080
+      - "8080:8080"
 
-
-    
 volumes:
-  myvol:
-
+  pgdata:
+  uploads:

@@ -14,11 +14,12 @@ import {
   toggleElementActive,
   deleteElement,
   cancelBooking,
-  deleteAvailability,
+  removeAvailabilityIntervals,
 } from '../api/elements';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge, Badge, statusToVariant } from '../components/ui/Badge';
-import Footer from '../components/Footer';
+import { ImageGalleryEditor } from '../components/ui/ImageGalleryEditor';
+import { deleteElementImage, setPrimaryElementImage, uploadElementImages } from '../api/images';
 import '../index.css';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -26,13 +27,138 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 // Light-theme event colors. Distinct from ElementDetail's read-only
 // availability/booked colors (indigo-400 / rose-500 background layers) since
 // these are interactive, clickable slot states rather than a passive legend.
-const COLOR_OPEN = '#4f46e5'; // indigo-600
-const COLOR_SELECTED = '#f97316'; // orange-500 — kept as-is, already a clear, distinct accent
-const COLOR_LOCKED = '#94a3b8'; // slate-400
-const COLOR_BOOKED = '#f43f5e'; // rose-500
+const COLOR_OPEN = '#4f46e5'; // indigo-600 (Available)
+const COLOR_SELECTED = '#0f172a'; // slate-900 (Selected for deletion)
+const COLOR_BOOKED = '#f43f5e'; // rose-500 (Reserved / Booked)
+const COLOR_COMPLETED = '#10b981'; // emerald-500 (Completed)
+
+// Availability is stored as one window per day (e.g. 08:00-17:00). The provider
+// calendar slices each window into clickable intervals so a single hour can be
+// closed without deleting the whole day.
+const INTERVAL_MINUTES = 60;
+
+interface SelectedInterval {
+  key: string;
+  slotId: string;
+  start: string;
+  end: string;
+}
+
+function intervalKey(slotId: string, start: string, end: string): string {
+  return `${slotId}|${start}|${end}`;
+}
+
+function chunkInterval(
+  start: string,
+  end: string,
+  stepMinutes: number
+): Array<{ start: string; end: string }> {
+  const step = stepMinutes * 60_000;
+  const startMs = new Date(start).getTime();
+  const endMs = new Date(end).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return [];
+
+  const chunks: Array<{ start: string; end: string }> = [];
+  for (let cursor = startMs; cursor < endMs; cursor += step) {
+    const next = Math.min(cursor + step, endMs);
+    chunks.push({ start: new Date(cursor).toISOString(), end: new Date(next).toISOString() });
+  }
+
+  return chunks;
+}
+
+// All-day events must use plain YYYY-MM-DD strings, otherwise a UTC midnight
+// timestamp shifts the block onto the previous day in negative offsets.
+function toAllDayRange(start: string, end: string): { start: string; end: string } {
+  const startDate = start.slice(0, 10);
+  let endDate = end.slice(0, 10);
+
+  if (endDate <= startDate) {
+    const next = new Date(`${startDate}T00:00:00.000Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    endDate = next.toISOString().slice(0, 10);
+  }
+
+  return { start: startDate, end: endDate };
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} h`;
+}
+
+function formatInterval(start?: string, end?: string, allDay = false): string {
+  if (!start || !end) return '';
+
+  if (allDay) {
+    const from = new Date(`${start.slice(0, 10)}T00:00:00`);
+    const to = new Date(`${end.slice(0, 10)}T00:00:00`);
+    to.setDate(to.getDate() - 1);
+    const fromLabel = from.toLocaleDateString();
+    const toLabel = to.toLocaleDateString();
+    return fromLabel === toLabel ? fromLabel : `${fromLabel} -> ${toLabel}`;
+  }
+
+  const options: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  return `${new Date(start).toLocaleTimeString([], options)} - ${new Date(end).toLocaleTimeString([], options)}`;
+}
 
 function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd);
+}
+
+function computeOpenIntervals(
+  slot: { startTime: string; endTime: string },
+  confirmedBookings: Array<{ startTime: string; endTime: string }>
+): Array<{ start: string; end: string }> {
+  const slotStart = new Date(slot.startTime).getTime();
+  const slotEnd = new Date(slot.endTime).getTime();
+  if (slotEnd <= slotStart) return [];
+
+  const overlaps = confirmedBookings
+    .map((b) => ({
+      start: Math.max(slotStart, new Date(b.startTime).getTime()),
+      end: Math.min(slotEnd, new Date(b.endTime).getTime()),
+    }))
+    .filter((b) => b.end > b.start)
+    .sort((a, b) => a.start - b.start);
+
+  if (overlaps.length === 0) {
+    return [{ start: slot.startTime, end: slot.endTime }];
+  }
+
+  const mergedBooked: Array<{ start: number; end: number }> = [];
+  for (const b of overlaps) {
+    const last = mergedBooked[mergedBooked.length - 1];
+    if (last && b.start <= last.end) {
+      last.end = Math.max(last.end, b.end);
+    } else {
+      mergedBooked.push({ start: b.start, end: b.end });
+    }
+  }
+
+  const openIntervals: Array<{ start: string; end: string }> = [];
+  let current = slotStart;
+
+  for (const b of mergedBooked) {
+    if (b.start > current) {
+      openIntervals.push({
+        start: new Date(current).toISOString(),
+        end: new Date(b.start).toISOString(),
+      });
+    }
+    current = Math.max(current, b.end);
+  }
+
+  if (current < slotEnd) {
+    openIntervals.push({
+      start: new Date(current).toISOString(),
+      end: new Date(slotEnd).toISOString(),
+    });
+  }
+
+  return openIntervals;
 }
 
 export default function ManageElement() {
@@ -50,7 +176,9 @@ export default function ManageElement() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [calendarError, setCalendarError] = useState<string | null>(null);
-  const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
+  const [calendarNotice, setCalendarNotice] = useState<string | null>(null);
+  const [selectedIntervals, setSelectedIntervals] = useState<SelectedInterval[]>([]);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
 
   const { data: element, isLoading, error } = useQuery({
     queryKey: ['element', id],
@@ -104,21 +232,76 @@ export default function ManageElement() {
     },
   });
 
-  const deleteSlotsMutation = useMutation({
-    mutationFn: async (slotIds: string[]) => {
-      await Promise.all(slotIds.map((slotId) => deleteAvailability(slotId)));
-    },
+  // Gallery actions hit the API immediately: the server owns ordering, the
+  // primary flag and the files on disk, so the element query is refreshed after
+  // each one instead of patching local state by hand.
+  const refreshElement = () => {
+    queryClient.invalidateQueries({ queryKey: ['element', id] });
+    queryClient.invalidateQueries({ queryKey: ['service', element?.serviceId] });
+  };
+
+  const uploadImagesMutation = useMutation({
+    mutationFn: (files: File[]) => uploadElementImages(id!, files),
     onSuccess: () => {
+      setGalleryError(null);
+      refreshElement();
+    },
+    onError: (err: any) => {
+      setGalleryError(err?.response?.data?.message ?? 'Could not upload the photo.');
+    },
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: (imageId: string) => deleteElementImage(id!, imageId),
+    onSuccess: () => {
+      setGalleryError(null);
+      refreshElement();
+    },
+    onError: (err: any) => {
+      setGalleryError(err?.response?.data?.message ?? 'Could not delete the photo.');
+    },
+  });
+
+  const setPrimaryMutation = useMutation({
+    mutationFn: (imageId: string) => setPrimaryElementImage(id!, imageId),
+    onSuccess: () => {
+      setGalleryError(null);
+      refreshElement();
+    },
+    onError: (err: any) => {
+      setGalleryError(err?.response?.data?.message ?? 'Could not set the cover photo.');
+    },
+  });
+
+  const galleryBusy =
+    uploadImagesMutation.isPending ||
+    deleteImageMutation.isPending ||
+    setPrimaryMutation.isPending;
+
+  const removeIntervalsMutation = useMutation({
+    mutationFn: (intervals: SelectedInterval[]) =>
+      removeAvailabilityIntervals({
+        elementId: id!,
+        intervals: intervals.map((interval) => ({
+          startTime: interval.start,
+          endTime: interval.end,
+        })),
+      }),
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['availability', id] });
-      setSelectedSlotIds([]);
+      setSelectedIntervals([]);
       setCalendarError(null);
+      setCalendarNotice(
+        `Availability updated - ${res.createdSlots} open range${res.createdSlots === 1 ? '' : 's'} kept bookable.`
+      );
     },
     onError: (err: any) => {
       const conflicts = err?.response?.data?.conflictingBookings;
+      setCalendarNotice(null);
       setCalendarError(
         conflicts?.length
-          ? `Can't delete — ${conflicts.length} confirmed booking(s) depend on one of these slots.`
-          : err?.response?.data?.message ?? 'Could not delete slot(s).'
+          ? `Can't remove - ${conflicts.length} confirmed booking(s) fall inside the selection.`
+          : err?.response?.data?.message ?? 'Could not remove the selected intervals.'
       );
     },
   });
@@ -156,29 +339,52 @@ export default function ManageElement() {
     });
   }
 
-  function isSlotLocked(slot: { startTime: string; endTime: string }): boolean {
-    return (bookings ?? []).some(
-      (b) => b.status === 'Confirmed' && rangesOverlap(slot.startTime, slot.endTime, b.startTime, b.endTime)
-    );
-  }
-
   function handleEventClick(info: EventClickArg) {
-    const { type, slotId, locked } = info.event.extendedProps as {
+    const { type, slotId, key, start, end, hasBooking, booking } = info.event.extendedProps as {
       type: string;
       slotId?: string;
-      locked?: boolean;
+      key?: string;
+      start?: string;
+      end?: string;
+      hasBooking?: boolean;
+      booking?: any;
     };
-    if (type !== 'availability' || !slotId) return;
 
-    if (locked) {
-      setCalendarError("This slot has a confirmed booking and can't be deleted.");
+    if (type === 'booking') {
+      if (booking) {
+        const s = new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const e = new Date(booking.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isDone = booking.status === 'Completed';
+        setCalendarError(
+          `${isDone ? 'Completed booking' : 'Reserved'} by ${booking.clientName || 'Client'} (${s} - ${e}). Status: ${booking.status}.${isDone ? '' : ' Confirmed bookings cannot be deleted.'}`
+        );
+      }
       return;
     }
 
-    setCalendarError(null);
-    setSelectedSlotIds((prev) =>
-      prev.includes(slotId) ? prev.filter((s) => s !== slotId) : [...prev, slotId]
-    );
+    if (type === 'availability' && slotId && key && start && end) {
+      if (hasBooking) {
+        setCalendarError('This interval overlaps a confirmed booking and cannot be removed until the booking is cancelled.');
+        return;
+      }
+
+      setCalendarError(null);
+      setCalendarNotice(null);
+      setSelectedIntervals((prev) =>
+        prev.some((s) => s.key === key)
+          ? prev.filter((s) => s.key !== key)
+          : [...prev, { key, slotId, start, end }]
+      );
+    }
+  }
+
+  function handleRemoveSelected() {
+    if (selectedIntervals.length === 0) return;
+
+    const label = `${selectedIntervals.length} interval${selectedIntervals.length === 1 ? '' : 's'}`;
+    if (!confirm(`Remove ${label} of availability? Confirmed bookings block removal.`)) return;
+
+    removeIntervalsMutation.mutate(selectedIntervals);
   }
 
   const inputClass =
@@ -187,30 +393,28 @@ export default function ManageElement() {
 
   if (!user || (user.role !== 'Provider' && user.role !== 'Admin')) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">You don't have access to this page.</p>
         </div>
-        <Footer />
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           <div className="h-8 w-64 animate-pulse rounded bg-slate-100" />
           <div className="mt-8 h-64 animate-pulse rounded-2xl bg-slate-100" />
         </div>
-        <Footer />
       </div>
     );
   }
 
   if (error || !element) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-10 text-center">
             <p className="font-semibold text-rose-700">Couldn't load this element</p>
@@ -219,41 +423,97 @@ export default function ManageElement() {
             </p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   const isHourly = element.bookingUnit === 'Hourly';
 
-  const availabilityEvents = (slots ?? []).map((slot) => {
-    const locked = isSlotLocked(slot);
-    const selected = selectedSlotIds.includes(slot.id);
+  const calendarBookings = (bookings ?? []).filter(
+    (b) => b.status === 'Confirmed' || b.status === 'Completed'
+  );
+
+  const bookingEvents = calendarBookings.map((b) => {
+    const dayRange = isHourly ? null : toAllDayRange(b.startTime, b.endTime);
+    const isCompleted = b.status === 'Completed';
+    const color = isCompleted ? COLOR_COMPLETED : COLOR_BOOKED;
+
     return {
-      id: `avail-${slot.id}`,
-      start: slot.startTime,
-      end: slot.endTime,
+      id: `booking-${b.id}`,
+      title: '',
+      start: dayRange ? dayRange.start : b.startTime,
+      end: dayRange ? dayRange.end : b.endTime,
+      allDay: !isHourly,
+      display: 'block' as const,
       editable: false,
-      backgroundColor: locked ? COLOR_LOCKED : selected ? COLOR_SELECTED : COLOR_OPEN,
-      borderColor: locked ? COLOR_LOCKED : selected ? COLOR_SELECTED : COLOR_OPEN,
-      extendedProps: { type: 'availability', slotId: slot.id, locked },
+      backgroundColor: color,
+      borderColor: color,
+      extendedProps: { type: 'booking', booking: b },
     };
   });
 
-  const bookingEvents = (bookings ?? [])
-    .filter((b) => b.status === 'Confirmed')
-    .map((b) => ({
-      id: `booking-${b.id}`,
-      start: b.startTime,
-      end: b.endTime,
-      editable: false,
-      display: 'background' as const,
-      backgroundColor: COLOR_BOOKED,
-      extendedProps: { type: 'booking' },
-    }));
+  const availabilityEvents = (slots ?? []).flatMap((slot) => {
+    const openIntervals = computeOpenIntervals(slot, calendarBookings);
+    const overlappingBookings = calendarBookings.filter((b) =>
+      rangesOverlap(slot.startTime, slot.endTime, b.startTime, b.endTime)
+    );
+    const hasBooking = overlappingBookings.length > 0;
+
+    // A day holding a booking is fully reserved; the booking block covers it
+    // and nothing on that day may be selected for removal.
+    if (!isHourly && hasBooking) return [];
+
+    return openIntervals.flatMap((interval, intervalIdx) => {
+      // Hourly elements get one clickable block per hour so single hours can be
+      // closed; daily/monthly elements keep a single block per day.
+      const blocks = isHourly
+        ? chunkInterval(interval.start, interval.end, INTERVAL_MINUTES)
+        : [{ start: interval.start, end: interval.end }];
+
+      return blocks.map((block, blockIdx) => {
+        const key = intervalKey(slot.id, block.start, block.end);
+        const selected = selectedIntervals.some((s) => s.key === key);
+        const color = selected ? COLOR_SELECTED : COLOR_OPEN;
+        const dayRange = isHourly ? null : toAllDayRange(block.start, block.end);
+        // Check the block itself, not the whole slot: a slot can hold a booking
+        // at 10:00 while the 09:00 block is still free to close.
+        const blockHasBooking = calendarBookings.some((b) =>
+          rangesOverlap(block.start, block.end, b.startTime, b.endTime)
+        );
+
+        return {
+          id: `avail-${slot.id}-${intervalIdx}-${blockIdx}`,
+          title: '',
+          start: dayRange ? dayRange.start : block.start,
+          end: dayRange ? dayRange.end : block.end,
+          allDay: !isHourly,
+          display: 'block' as const,
+          editable: false,
+          backgroundColor: color,
+          borderColor: color,
+          extendedProps: {
+            type: 'availability',
+            slotId: slot.id,
+            key,
+            start: block.start,
+            end: block.end,
+            hasBooking: blockHasBooking,
+          },
+        };
+      });
+    });
+  });
+
+  const selectedMinutes = Math.round(
+    selectedIntervals.reduce(
+      (total, interval) =>
+        total + (new Date(interval.end).getTime() - new Date(interval.start).getTime()) / 60_000,
+      0
+    )
+  );
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd]">
+    <div className="min-h-screen bg-[#f8fafc]">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -291,6 +551,18 @@ export default function ManageElement() {
           </div>
         </div>
         {deleteError && <p className="mt-4 text-sm text-amber-600">{deleteError}</p>}
+
+        {/* Photos */}
+        <div className="mt-8">
+          <ImageGalleryEditor
+            images={element.images ?? []}
+            busy={galleryBusy}
+            onUpload={(files) => uploadImagesMutation.mutate(files)}
+            onDelete={(imageId) => deleteImageMutation.mutate(imageId)}
+            onSetPrimary={(imageId) => setPrimaryMutation.mutate(imageId)}
+            error={galleryError}
+          />
+        </div>
 
         {/* Generate Availability */}
         <h2 className="mt-8 text-lg font-bold text-slate-900">Generate Availability</h2>
@@ -373,46 +645,82 @@ export default function ManageElement() {
         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_OPEN }} />
-            Open — click to select
+            Available — click a block to select
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_SELECTED }} />
-            Selected
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_LOCKED }} />
-            Locked (has a booking)
+            Selected for removal
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_BOOKED }} />
-            Booked time
+            Reserved / Booked (hover for details)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_COMPLETED }} />
+            Completed (past booking)
           </span>
         </div>
+        <p className="mt-2 text-xs text-slate-400">
+          {isHourly
+            ? 'Each block is one hour. Pick the hours you want to close, then remove them in one go.'
+            : 'Each block is one day. Pick the days you want to close, then remove them in one go.'}
+        </p>
         {calendarError && <p className="mt-3 text-sm text-amber-600">{calendarError}</p>}
+        {calendarNotice && <p className="mt-3 text-sm text-emerald-600">{calendarNotice}</p>}
 
         <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4 fc-light-theme">
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView={isHourly ? 'timeGridWeek' : 'dayGridMonth'}
+            allDaySlot={!isHourly}
+            slotDuration={isHourly ? '01:00:00' : undefined}
+            snapDuration={isHourly ? '01:00:00' : undefined}
             headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
             events={[...availabilityEvents, ...bookingEvents]}
             eventClick={handleEventClick}
+            eventContent={(arg) => (
+              <div className={arg.event.allDay ? 'h-4 w-full' : 'h-full w-full'} />
+            )}
+            eventDidMount={(info) => {
+              const { type, booking } = (info.event.extendedProps || {}) as any;
+              if (type === 'booking' && booking) {
+                const range = formatInterval(booking.startTime, booking.endTime, info.event.allDay);
+                const prefix = booking.status === 'Completed' ? 'Completed' : 'Reserved';
+                info.el.title = `${prefix}: ${booking.clientName || 'Client'} (${range})`;
+              } else if (type === 'availability') {
+                const { start, end } = (info.event.extendedProps || {}) as { start?: string; end?: string };
+                const range = formatInterval(start, end, info.event.allDay);
+                info.el.title = range ? `${range} · Click to select` : 'Click to select';
+              }
+            }}
             height="auto"
           />
         </div>
 
-        {selectedSlotIds.length > 0 && (
-          <button
-            onClick={() => {
-              if (confirm(`Delete ${selectedSlotIds.length} selected slot(s)?`)) {
-                deleteSlotsMutation.mutate(selectedSlotIds);
-              }
-            }}
-            disabled={deleteSlotsMutation.isPending}
-            className="mt-3 rounded-full bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50"
-          >
-            Delete {selectedSlotIds.length} selected slot{selectedSlotIds.length !== 1 ? 's' : ''}
-          </button>
+        {selectedIntervals.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-sm text-slate-600">
+              <span className="font-semibold text-slate-900">{selectedIntervals.length}</span>{' '}
+              {isHourly
+                ? `interval${selectedIntervals.length !== 1 ? 's' : ''} selected · ${formatDuration(selectedMinutes)} total`
+                : `day${selectedIntervals.length !== 1 ? 's' : ''} selected`}
+            </p>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setSelectedIntervals([])}
+                className="rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Clear selection
+              </button>
+              <button
+                onClick={handleRemoveSelected}
+                disabled={removeIntervalsMutation.isPending}
+                className="rounded-full bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50"
+              >
+                {removeIntervalsMutation.isPending ? 'Removing...' : 'Remove selected'}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Bookings */}
@@ -453,8 +761,6 @@ export default function ManageElement() {
           )}
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

@@ -47,7 +47,7 @@ export default function AuthLayout({ illustrationSide, children }: AuthLayoutPro
     </div>
   );
   return (
-    <div className="min-h-screen bg-[#fcfcfd] flex">
+    <div className="min-h-screen bg-[#f8fafc] flex">
       {illustrationSide==='left' ? <>{visual}{form}</> : <>{form}{visual}</>}
     </div>
   );

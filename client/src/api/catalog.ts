@@ -29,10 +29,31 @@ export interface ServiceRequest {
   description: string | null;
   isActive: boolean;
   bookingUnit: BookingUnit;
+  /** New cover image; when present the server replaces and deletes the old file. */
+  image?: File | null;
+  /** Clears the current cover without uploading a new one. */
+  removeImage?: boolean;
+}
+
+function toServiceForm(data: ServiceRequest): FormData {
+  const form = new FormData();
+  form.append('CategoryId', data.categoryId);
+  form.append('Name', data.name);
+  form.append('Description', data.description ?? '');
+  form.append('IsActive', String(data.isActive));
+  form.append('BookingUnit', data.bookingUnit);
+  form.append('RemoveImage', String(data.removeImage ?? false));
+  if (data.image) form.append('Image', data.image);
+  return form;
 }
 
 export async function createService(data: ServiceRequest): Promise<Service> {
-  const res = await apiClient.post<Service>('/services', data);
+  const res = await apiClient.post<Service>('/services', toServiceForm(data));
+  return res.data;
+}
+
+export async function updateService(id: string, data: ServiceRequest): Promise<Service> {
+  const res = await apiClient.put<Service>(`/services/${id}`, toServiceForm(data));
   return res.data;
 }
 
@@ -43,15 +64,28 @@ export async function toggleServiceActive(id: string): Promise<Service> {
 export interface CategoryRequest {
   name: string;
   description: string | null;
+  /** New cover image; when present the server replaces and deletes the old file. */
+  image?: File | null;
+  /** Clears the current cover without uploading a new one. */
+  removeImage?: boolean;
+}
+
+function toCategoryForm(data: CategoryRequest): FormData {
+  const form = new FormData();
+  form.append('Name', data.name);
+  form.append('Description', data.description ?? '');
+  form.append('RemoveImage', String(data.removeImage ?? false));
+  if (data.image) form.append('Image', data.image);
+  return form;
 }
 
 export async function createCategory(data: CategoryRequest): Promise<Category> {
-  const res = await apiClient.post<Category>('/categories', data);
+  const res = await apiClient.post<Category>('/categories', toCategoryForm(data));
   return res.data;
 }
 
 export async function updateCategory(id: string, data: CategoryRequest): Promise<Category> {
-  const res = await apiClient.put<Category>(`/categories/${id}`, data);
+  const res = await apiClient.put<Category>(`/categories/${id}`, toCategoryForm(data));
   return res.data;
 }
 

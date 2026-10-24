@@ -3,10 +3,12 @@
 @theme {
   --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", "Playfair Display", Georgia, Cambria, serif;
 }
 
 * { font-family: var(--font-body); }
 h1, h2, h3, .font-display { font-family: var(--font-display); }
+.font-serif { font-family: var(--font-serif); }
 
 /* Smooth scrolling + selection */
 html { scroll-behavior: smooth; }
@@ -60,6 +62,10 @@ html { scroll-behavior: smooth; }
 .fc-light-theme .fc-daygrid-day.fc-day-today,
 .fc-light-theme .fc-timegrid-col.fc-day-today { background-color: rgba(79, 70, 229, 0.06); }
 .fc-light-theme .fc-highlight { background: rgba(79, 70, 229, 0.18); }
+
+/* Availability / reservation washes on the booking page. The stock
+   --fc-bg-event-opacity of 0.3 leaves the pastel tints almost invisible. */
+.fc-availability-calendar .fc-bg-event { opacity: 1; }
 
 /* Polish FullCalendar */
 .fc .fc-button { border-radius: 9999px !important; padding: 6px 14px !important; font-size: 13px !important; font-weight: 600 !important; text-transform: capitalize; }

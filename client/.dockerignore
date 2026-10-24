@@ -1,1 +1,8 @@
 node_modules
+
+# Never let a local .env override the VITE_API_URL build argument.
+.env
+.env.*
+dist
+.vite
+npm-debug.log*

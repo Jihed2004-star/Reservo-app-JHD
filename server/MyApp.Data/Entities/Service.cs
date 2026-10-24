@@ -20,6 +20,12 @@ public class Service
 
     public string? Description { get; set; }
 
+    /// <summary>
+    /// Relative URL of the uploaded cover image ("/uploads/services/xxx.webp").
+    /// Null means no upload yet — the UI falls back to a curated stock photo.
+    /// </summary>
+    public string? ImageUrl { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Controls how the frontend calendar presents booking (hourly slots vs day/month ranges)

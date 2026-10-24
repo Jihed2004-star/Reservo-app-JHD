@@ -6,7 +6,6 @@ import { createReview } from '../api/reviews';
 import { useAuth } from '../context/AuthContext';
 import { Badge, statusToVariant } from '../components/ui/Badge';
 import { ListRowSkeletonGroup } from '../components/ui/ListRowSkeleton';
-import Footer from '../components/Footer';
 
 export default function MyBookings() {
   const { user } = useAuth();
@@ -67,7 +66,7 @@ export default function MyBookings() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">
             <Link to="/login" className="font-medium text-indigo-600 hover:underline">
@@ -76,13 +75,12 @@ export default function MyBookings() {
             to see your bookings.
           </p>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd]">
+    <div className="min-h-screen bg-[#f8fafc]">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">My bookings</h1>
 
@@ -204,8 +202,6 @@ export default function MyBookings() {
           )}
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

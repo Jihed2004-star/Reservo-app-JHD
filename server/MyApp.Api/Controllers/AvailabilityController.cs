@@ -204,6 +204,179 @@ public class AvailabilityController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Removes one or more intervals from an element's availability in a single
+    /// pass. Slots that are only partially covered are trimmed, and slots the
+    /// intervals cut through are split into the ranges that stay bookable.
+    /// </summary>
+    [Authorize(Roles = "Provider,Admin")]
+    [HttpPost("intervals/remove")]
+    public async Task<ActionResult<RemoveAvailabilityIntervalResponse>> RemoveIntervals(
+        RemoveAvailabilityIntervalsRequest request)
+    {
+        if (request.Intervals is null || request.Intervals.Count == 0)
+        {
+            return BadRequest(new { message = "At least one interval must be specified." });
+        }
+
+        if (request.Intervals.Any(i => i.EndTime <= i.StartTime))
+        {
+            return BadRequest(new { message = "EndTime must be after StartTime for every interval." });
+        }
+
+        var element = await _context.Elements
+            .Include(e => e.Service)
+            .FirstOrDefaultAsync(e => e.Id == request.ElementId);
+
+        if (element is null)
+        {
+            return BadRequest(new { message = "ElementId does not reference an existing element." });
+        }
+
+        if (!IsOwnerOrAdmin(element.Service.ProviderId))
+        {
+            return Forbid();
+        }
+
+        // Merge overlapping or adjacent intervals so no minute is removed twice.
+        var removeRanges = MergeRanges(request.Intervals.Select(i => (i.StartTime, i.EndTime)));
+        var span = new NpgsqlRange<DateTime>(removeRanges[0].Start, true, removeRanges[^1].End, false);
+
+        var conflicts = await _context.Bookings
+            .Where(b => b.ElementId == request.ElementId
+                     && b.Status == "Confirmed"
+                     && b.TimeRange.Overlaps(span))
+            .Select(b => new BookingConflictDto
+            {
+                BookingId = b.Id,
+                StartTime = b.TimeRange.LowerBound,
+                EndTime = b.TimeRange.UpperBound
+            })
+            .ToListAsync();
+
+        var realConflicts = conflicts
+            .Where(b => removeRanges.Any(r => b.StartTime < r.End && r.Start < b.EndTime))
+            .ToList();
+
+        if (realConflicts.Count > 0)
+        {
+            return Conflict(new
+            {
+                message = "The selected intervals contain confirmed bookings and can't be removed.",
+                conflictingBookings = realConflicts
+            });
+        }
+
+        var overlappingSlots = await _context.Availabilities
+            .Where(a => a.ElementId == request.ElementId && a.TimeRange.Overlaps(span))
+            .OrderBy(a => a.TimeRange.LowerBound)
+            .ToListAsync();
+
+        if (overlappingSlots.Count == 0)
+        {
+            return NotFound(new { message = "No availability slot overlaps the selected intervals." });
+        }
+
+        var response = new RemoveAvailabilityIntervalResponse();
+        var remainingRanges = new List<(DateTime Start, DateTime End)>();
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        foreach (var slot in overlappingSlots)
+        {
+            var lower = slot.TimeRange.LowerBound;
+            var upper = slot.TimeRange.UpperBound;
+            var remaining = SubtractRanges(lower, upper, removeRanges);
+
+            _context.Availabilities.Remove(slot);
+
+            if (remaining.Count == 0)
+            {
+                response.RemovedSlots++;
+                continue;
+            }
+
+            remainingRanges.AddRange(remaining);
+            response.TrimmedSlots++;
+        }
+
+        // Flush the deletes first so the replacement ranges never overlap the old rows.
+        await _context.SaveChangesAsync();
+
+        if (remainingRanges.Count > 0)
+        {
+            _context.Availabilities.AddRange(remainingRanges.Select(range => new Availability
+            {
+                ElementId = request.ElementId,
+                TimeRange = new NpgsqlRange<DateTime>(range.Start, true, range.End, false)
+            }));
+
+            await _context.SaveChangesAsync();
+        }
+
+        response.CreatedSlots = remainingRanges.Count;
+
+        await transaction.CommitAsync();
+
+        return Ok(response);
+    }
+
+    private static List<(DateTime Start, DateTime End)> MergeRanges(
+        IEnumerable<(DateTime Start, DateTime End)> ranges)
+    {
+        var merged = new List<(DateTime Start, DateTime End)>();
+
+        foreach (var range in ranges.OrderBy(r => r.Start))
+        {
+            if (merged.Count > 0 && range.Start <= merged[^1].End)
+            {
+                var last = merged[^1];
+                merged[^1] = (last.Start, range.End > last.End ? range.End : last.End);
+                continue;
+            }
+
+            merged.Add(range);
+        }
+
+        return merged;
+    }
+
+    private static List<(DateTime Start, DateTime End)> SubtractRanges(
+        DateTime slotStart,
+        DateTime slotEnd,
+        IEnumerable<(DateTime Start, DateTime End)> removals)
+    {
+        var remaining = new List<(DateTime Start, DateTime End)> { (slotStart, slotEnd) };
+
+        foreach (var removal in removals)
+        {
+            var next = new List<(DateTime Start, DateTime End)>();
+
+            foreach (var (start, end) in remaining)
+            {
+                if (removal.End <= start || removal.Start >= end)
+                {
+                    next.Add((start, end));
+                    continue;
+                }
+
+                if (start < removal.Start)
+                {
+                    next.Add((start, removal.Start));
+                }
+
+                if (end > removal.End)
+                {
+                    next.Add((removal.End, end));
+                }
+            }
+
+            remaining = next;
+        }
+
+        return remaining.Where(r => r.End > r.Start).ToList();
+    }
+
     private bool IsOwnerOrAdmin(Guid ownerProviderId)
     {
         if (User.IsInRole("Admin"))

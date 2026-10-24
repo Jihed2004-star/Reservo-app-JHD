@@ -2,7 +2,7 @@ import type { ElementItem } from '../../types/catalog';
 import { Card } from '../ui/Card';
 import { StatusBadge } from '../ui/Badge';
 import { TagIcon } from '../ui/TagIcon';
-import { getElementImage } from '../../utils/images';
+import { elementImage } from '../../utils/images';
 
 interface ElementCardProps {
   element: ElementItem;
@@ -29,7 +29,7 @@ export function ElementCard({
 
   return (
     <Card
-      imageUrl={getElementImage(element.name, element.id)}
+      imageUrl={elementImage(element)}
       imageAlt={element.name}
       cornerBadge={<StatusBadge isActive={element.isActive} />}
       footerLabel="View details"

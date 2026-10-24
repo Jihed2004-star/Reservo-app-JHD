@@ -1,2 +1,12 @@
 **/bin/
 **/obj/
+
+# Keep IDE files and uploaded images out of the image: the container gets a
+# clean wwwroot/uploads mounted as a volume instead.
+**/.vs/
+**/*.user
+**/*.suo
+MyApp.Api/wwwroot/uploads/
+**/Dockerfile
+**/.dockerignore
+

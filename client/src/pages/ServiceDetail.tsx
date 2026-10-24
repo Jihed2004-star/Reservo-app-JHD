@@ -5,8 +5,7 @@ import { getServiceById } from '../api/catalog';
 import { ElementCard } from '../components/cards/ElementCard';
 import { StatusBadge } from '../components/ui/Badge';
 import { CardSkeletonGrid } from '../components/ui/CardSkeleton';
-import Footer from '../components/Footer';
-import { getServiceImage } from '../utils/images';
+import { serviceImage } from '../utils/images';
 
 export default function ServiceDetail(){
   const { id } = useParams<{id:string}>();
@@ -19,13 +18,13 @@ export default function ServiceDetail(){
     return service.elements.filter(el=> el.name.toLowerCase().includes(q));
   },[service,search]);
   if(isLoading){
-    return (<div className="min-h-screen bg-[#fcfcfd]"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6"><div className="h-4 w-40 animate-pulse rounded bg-slate-100"/><div className="mt-4 h-8 w-64 animate-pulse rounded bg-slate-100"/><div className="mt-8"><CardSkeletonGrid count={3}/></div></div><Footer/></div>);
+    return (<div className="min-h-screen bg-[#f8fafc]"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6"><div className="h-4 w-40 animate-pulse rounded bg-slate-100"/><div className="mt-4 h-8 w-64 animate-pulse rounded bg-slate-100"/><div className="mt-8"><CardSkeletonGrid count={3}/></div></div></div>);
   }
   if(error || !service){
-    return (<div className="min-h-screen bg-[#fcfcfd]"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6"><div className="rounded-[22px] border border-rose-200 bg-rose-50 px-6 py-10 text-center"><p className="font-semibold text-rose-700">{error ? "Could not load this service" : 'Service not found'}</p></div></div><Footer/></div>);
+    return (<div className="min-h-screen bg-[#f8fafc]"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6"><div className="rounded-[22px] border border-rose-200 bg-rose-50 px-6 py-10 text-center"><p className="font-semibold text-rose-700">{error ? "Could not load this service" : 'Service not found'}</p></div></div></div>);
   }
   return (
-    <div className="min-h-screen bg-[#fcfcfd]">
+    <div className="min-h-screen bg-[#f8fafc]">
       <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
         <Link to={`/categories/${service.categoryId}/services`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -47,7 +46,7 @@ export default function ServiceDetail(){
               </div>
             </div>
             <div className="relative hidden min-h-[280px] lg:block">
-              <img src={getServiceImage(service.name, service.id)} alt={service.name} className="h-full w-full object-cover"/>
+              <img src={serviceImage(service)} alt={service.name} className="h-full w-full object-cover"/>
               <div className="absolute inset-0 bg-gradient-to-r from-white via-transparent to-transparent"/>
             </div>
           </div>
@@ -64,7 +63,6 @@ export default function ServiceDetail(){
           {filtered.length>0 && (<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(el=> <ElementCard key={el.id} element={el} serviceName={service.name} />)}</div>)}
         </div>
       </div>
-      <Footer/>
     </div>
   );
 }

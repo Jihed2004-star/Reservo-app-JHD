@@ -32,11 +32,35 @@ public class UsersController : ControllerBase
                 Email = u.Email,
                 FullName = u.FullName,
                 Role = u.Role,
+                PhoneNumber = u.PhoneNumber,
+                IsActive = u.IsActive,
                 CreatedAt = u.CreatedAt
             })
             .ToListAsync();
 
         return Ok(users);
+    }
+
+    [HttpPatch("{id}/toggle-active")]
+    public async Task<ActionResult<UserResponse>> ToggleActive(Guid id)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user is null) return NotFound(new { message = "User not found." });
+        var currentAdminId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
+        if (user.Id == currentAdminId) return BadRequest(new { message = "You cannot deactivate your own account." });
+        user.IsActive = !user.IsActive;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(new UserResponse
+        {
+            Id = user.Id,
+            Email = user.Email,
+            FullName = user.FullName,
+            Role = user.Role,
+            PhoneNumber = user.PhoneNumber,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt
+        });
     }
 
     [HttpPatch("{id}/role")]
@@ -71,6 +95,8 @@ public class UsersController : ControllerBase
             Email = user.Email,
             FullName = user.FullName,
             Role = user.Role,
+            PhoneNumber = user.PhoneNumber,
+            IsActive = user.IsActive,
             CreatedAt = user.CreatedAt
         });
     }

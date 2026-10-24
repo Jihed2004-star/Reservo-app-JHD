@@ -62,8 +62,7 @@ export default function Navbar(){
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
             <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18" strokeLinecap="round"/><path d="M8 3v3M16 3v3" strokeLinecap="round"/><path d="M8.5 14l2 2 4.5-4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </span>
-          <span className="font-display text-[17px] font-extrabold tracking-tight text-slate-900">Reservo</span>
-          <span className="hidden rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-indigo-600 sm:inline-flex">Marketplace</span>
+          <span className="font-display text-[17px] font-extrabold tracking-tight text-slate-900">Reservo Marketplace</span>
         </Link>
         <div className="hidden items-center gap-1 lg:flex">
           <NavLink to="/" className={({isActive})=>navLinkClass(isActive)}>Home</NavLink>

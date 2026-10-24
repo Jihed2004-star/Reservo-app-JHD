@@ -104,12 +104,35 @@ myapp/
 ### Navigation
 - `Navbar.tsx` redesigned with a role-aware "Manage" hover/click dropdown (replacing separate top-level Dashboard/Users/Categories links) — shows only the management pages relevant to the logged-in user's role, with hover-gap and click-outside handling fixed after initial UX issues.
 
+## Running with Docker Compose
+The whole stack — PostgreSQL, the ASP.NET API, the React build served by nginx, and Adminer — is containerised.
+
+```bash
+docker compose up --build      # first start: applies migrations, then seeds the admin
+docker compose down            # stop, keep the database and uploads volumes
+docker compose down -v         # stop and wipe both volumes
+```
+
+| Service | URL | Notes |
+|---|---|---|
+| Frontend | http://localhost:1234 | nginx, SPA fallback to `index.html` |
+| API | http://localhost:8000 | Swagger at `/swagger` (Development only) |
+| Adminer | http://localhost:8080 | server `postgres`; credentials from `.env` |
+| PostgreSQL | `localhost:5433` | optional — for `psql`/DBeaver from the host |
+
+Defaults: database `myapp` / `myapp_user` / `devpassword`; uploads live in the `uploads` volume mounted at `/app/wwwroot/uploads` (covers and galleries survive `down`). Copy `.env.example` to `.env` to override the JWT secret, admin credentials, ports or `VITE_API_URL`.
+
+**Seeded administrator** — `AdminSeeder` runs on every API start and creates the account described by `Seed__Admin__Email` / `Seed__Admin__Password` / `Seed__Admin__FullName` (`ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` in compose). Defaults: `admin@reservo.local` / `Admin123!` — change these before exposing the stack. It is idempotent and non-destructive: an existing account is only re-promoted to `Role = Admin` / `IsActive = true`, so a password changed in the app is never reset by a restart.
+
+`VITE_API_URL` is baked into the bundle at build time and is used by the **browser**, so it must be a URL published on the host (`http://localhost:8000/api`), never the internal `http://api:8080/api`.
+
+
 ## Known, deliberately deferred gaps
 - No email/SMS notifications (would need real infrastructure beyond MVP scope)
 - No search/filtering on browse pages (Categories/Services/Elements are list-only)
-- No image uploads for Elements (Attributes remain text-only key-value pairs)
+- No media beyond still images (element galleries accept PNG/JPG/WEBP/GIF, max 5 MB each, 8 per element)
 - No sandbox/test-mode payment integration
-- No Docker containerization
+- Docker Compose setup is demo-grade: one nginx container, no TLS, no reverse proxy or rate limiting
 - No CI/CD pipeline
 
 ## Key learnings from this build phase (in addition to the original list)

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Api.DTOs;
+using MyApp.Api.Mappings;
+using MyApp.Api.Services;
 using MyApp.Data;
 using MyApp.Data.Entities;
 using System.Security.Claims;
@@ -13,10 +15,12 @@ namespace MyApp.Api.Controllers;
 public class ServicesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IFileStorageService _fileStorage;
 
-    public ServicesController(AppDbContext context)
+    public ServicesController(AppDbContext context, IFileStorageService fileStorage)
     {
         _context = context;
+        _fileStorage = fileStorage;
     }
 
     [HttpGet]
@@ -25,6 +29,7 @@ public class ServicesController : ControllerBase
         var query = _context.Services
             .Include(s => s.Category)
             .Include(s => s.Elements)
+                .ThenInclude(e => e.Images)
             .AsQueryable();
 
         if (categoryId.HasValue)
@@ -44,6 +49,7 @@ public class ServicesController : ControllerBase
         var service = await _context.Services
             .Include(s => s.Category)
             .Include(s => s.Elements)
+                .ThenInclude(e => e.Images)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (service is null)
@@ -64,6 +70,7 @@ public class ServicesController : ControllerBase
         var query = _context.Services
             .Include(s => s.Category)
             .Include(s => s.Elements)
+                .ThenInclude(e => e.Images)
             .AsQueryable();
 
         if (!User.IsInRole("Admin"))
@@ -79,9 +86,32 @@ public class ServicesController : ControllerBase
 
     [Authorize(Roles = "Provider,Admin")]
     [HttpPost]
-    public async Task<ActionResult<ServiceResponse>> Create(ServiceRequest request)
+    [Consumes("multipart/form-data")]
+    public Task<ActionResult<ServiceResponse>> Create([FromForm] ServiceFormRequest request)
+        => CreateCoreAsync(request.CategoryId, request.Name, request.Description, request.IsActive, request.BookingUnit, request.Image);
+
+    /// <summary>
+    /// JSON fallback for scripted clients (see scripts/e2e_remove_intervals.py).
+    /// Same route, disambiguated by the request content type.
+    /// </summary>
+    [Authorize(Roles = "Provider,Admin")]
+    [HttpPost]
+    [Consumes("application/json")]
+    // Hidden from Swagger: sharing a route with the multipart Create action
+    // breaks the generated OpenAPI document (Swashbuckle returns 500).
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public Task<ActionResult<ServiceResponse>> CreateJson(ServiceRequest request)
+        => CreateCoreAsync(request.CategoryId, request.Name, request.Description, request.IsActive, request.BookingUnit, null);
+
+    private async Task<ActionResult<ServiceResponse>> CreateCoreAsync(
+        Guid categoryId,
+        string name,
+        string? description,
+        bool isActive,
+        BookingUnit bookingUnit,
+        IFormFile? image)
     {
-        var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId);
+        var categoryExists = await _context.Categories.AnyAsync(c => c.Id == categoryId);
         if (!categoryExists)
         {
             return BadRequest(new { message = "CategoryId does not reference an existing category." });
@@ -90,14 +120,28 @@ public class ServicesController : ControllerBase
         var providerId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                              ?? User.FindFirst("sub")!.Value);
 
+        string? imageUrl = null;
+        if (image is not null)
+        {
+            try
+            {
+                imageUrl = (await _fileStorage.SaveAsync(image, StorageFolders.Services)).Url;
+            }
+            catch (FileStorageException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         var service = new Service
         {
-            CategoryId = request.CategoryId,
+            CategoryId = categoryId,
             ProviderId = providerId,
-            Name = request.Name,
-            Description = request.Description,
-            IsActive = request.IsActive,
-            BookingUnit = request.BookingUnit
+            Name = name,
+            Description = description,
+            ImageUrl = imageUrl,
+            IsActive = isActive,
+            BookingUnit = bookingUnit
         };
 
         _context.Services.Add(service);
@@ -111,21 +155,55 @@ public class ServicesController : ControllerBase
 
     [Authorize(Roles = "Provider,Admin")]
     [HttpPut("{id}")]
-    public async Task<ActionResult<ServiceResponse>> Update(Guid id, ServiceRequest request)
+    [Consumes("multipart/form-data")]
+    public Task<ActionResult<ServiceResponse>> Update(Guid id, [FromForm] ServiceFormRequest request)
+        => UpdateCoreAsync(
+            id,
+            request.CategoryId,
+            request.Name,
+            request.Description,
+            request.IsActive,
+            request.BookingUnit,
+            request.Image,
+            request.RemoveImage);
+
+    [Authorize(Roles = "Provider,Admin")]
+    [HttpPut("{id}")]
+    [Consumes("application/json")]
+    // Hidden from Swagger for the same reason as CreateJson above.
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public Task<ActionResult<ServiceResponse>> UpdateJson(Guid id, ServiceRequest request)
+        => UpdateCoreAsync(
+            id,
+            request.CategoryId,
+            request.Name,
+            request.Description,
+            request.IsActive,
+            request.BookingUnit,
+            null,
+            false);
+
+    private async Task<ActionResult<ServiceResponse>> UpdateCoreAsync(
+        Guid id,
+        Guid categoryId,
+        string name,
+        string? description,
+        bool isActive,
+        BookingUnit bookingUnit,
+        IFormFile? image,
+        bool removeImage)
     {
-
-
-        
         var service = await _context.Services
             .Include(s => s.Category)
             .Include(s => s.Elements)
+                .ThenInclude(e => e.Images)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (service is null)
         {
             return NotFound(new { message = "Service not found." });
         }
-        
+
         var currentUserId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                                 ?? User.FindFirst("sub")!.Value);
         var isAdmin = User.IsInRole("Admin");
@@ -134,12 +212,14 @@ public class ServicesController : ControllerBase
         {
             return Forbid();
         }
-        var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId);
+
+        var categoryExists = await _context.Categories.AnyAsync(c => c.Id == categoryId);
         if (!categoryExists)
         {
             return BadRequest(new { message = "CategoryId does not reference an existing category." });
         }
-      if (request.BookingUnit != service.BookingUnit)
+
+        if (bookingUnit != service.BookingUnit)
         {
             bool hasExistingData = await _context.Elements
                 .Where(e => e.ServiceId == service.Id)
@@ -152,17 +232,47 @@ public class ServicesController : ControllerBase
                 return Conflict(new { message = "Cannot change booking granularity while existing availability or bookings are present. Clear them first." });
             }
         }
-        service.CategoryId = request.CategoryId;
-        service.Name = request.Name;
-        service.Description = request.Description;
-        service.IsActive = request.IsActive;
-        service.BookingUnit = request.BookingUnit;
+
+        var previousImageUrl = service.ImageUrl;
+        string? uploadedImageUrl = null;
+
+        if (image is not null)
+        {
+            try
+            {
+                uploadedImageUrl = (await _fileStorage.SaveAsync(image, StorageFolders.Services)).Url;
+            }
+            catch (FileStorageException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        service.CategoryId = categoryId;
+        service.Name = name;
+        service.Description = description;
+        service.IsActive = isActive;
+        service.BookingUnit = bookingUnit;
+
+        if (uploadedImageUrl is not null)
+        {
+            service.ImageUrl = uploadedImageUrl;
+        }
+        else if (removeImage)
+        {
+            service.ImageUrl = null;
+        }
 
         await _context.SaveChangesAsync();
 
+        // Only drop the old file once the new URL is safely persisted.
+        if (previousImageUrl is not null && previousImageUrl != service.ImageUrl)
+        {
+            await _fileStorage.DeleteAsync(previousImageUrl);
+        }
+
         return Ok(MapToResponse(service));
     }
-
 
     [Authorize(Roles = "Provider,Admin")] 
     [HttpPatch("{id}/toggle-active")]
@@ -171,6 +281,7 @@ public class ServicesController : ControllerBase
         var service = await _context.Services
             .Include(s => s.Category)
             .Include(s => s.Elements)
+                .ThenInclude(e => e.Images)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (service is null)
@@ -199,7 +310,10 @@ public class ServicesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var service = await _context.Services.FindAsync(id);
+        var service = await _context.Services
+            .Include(s => s.Elements)
+                .ThenInclude(e => e.Images)
+            .FirstOrDefaultAsync(s => s.Id == id);
 
         if (service is null)
         {
@@ -213,6 +327,15 @@ public class ServicesController : ControllerBase
         {
             return Forbid();
         }
+        // Collect the files before the rows disappear so the disk does not fill
+        // up with covers/galleries nobody can reach any more.
+        var imageUrls = new List<string?>();
+        if (!string.IsNullOrEmpty(service.ImageUrl))
+        {
+            imageUrls.Add(service.ImageUrl);
+        }
+        imageUrls.AddRange(service.Elements.SelectMany(e => e.Images.Select(i => (string?)i.Url)));
+
         _context.Services.Remove(service);
 
         try
@@ -223,6 +346,8 @@ public class ServicesController : ControllerBase
         {
             return Conflict(new { message = "Cannot delete this service while its elements have booking history. Remove or archive bookings first." });
         }
+
+        await _fileStorage.DeleteManyAsync(imageUrls);
 
         return NoContent();
     }
@@ -243,6 +368,7 @@ public class ServicesController : ControllerBase
         CategoryName = s.Category.Name,
         Name = s.Name,
         Description = s.Description,
+        ImageUrl = s.ImageUrl,
         IsActive = s.IsActive,
         CreatedAt = s.CreatedAt,
         BookingUnit = s.BookingUnit,
@@ -255,7 +381,9 @@ public class ServicesController : ControllerBase
             Price = e.Price,
             Attributes = e.Attributes,
             BookingUnit = s.BookingUnit,
-            IsActive = e.IsActive
+            IsActive = e.IsActive,
+            Images = e.Images.ToImageResponses(),
+            PrimaryImageUrl = e.Images.PrimaryImageUrl()
         }).ToList()
     };
 }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { login as loginApi } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
@@ -13,6 +13,8 @@ export default function Login() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -22,7 +24,7 @@ export default function Login() {
     try {
       const response = await loginApi({ email, password });
       login(response);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch {
       setError('Invalid email or password.');
     } finally {
@@ -97,7 +99,7 @@ export default function Login() {
 
       <p className="text-sm text-slate-500 mt-6 text-center">
         Don't have an account?{' '}
-        <Link to="/register" className="text-rose-500 font-medium hover:text-rose-600">
+        <Link to="/register" state={{ from }} className="text-rose-500 font-medium hover:text-rose-600">
           Sign up
         </Link>
       </p>

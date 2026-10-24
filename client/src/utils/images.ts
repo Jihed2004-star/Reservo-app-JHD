@@ -74,3 +74,46 @@ export function getElementImage(name: string, id: string): string {
 export const HERO_IMAGE = 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80&auto=format&fit=crop';
 export const AUTH_IMAGE_LOGIN = 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=900&q=80&auto=format&fit=crop';
 export const AUTH_IMAGE_REGISTER = 'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=900&q=80&auto=format&fit=crop';
+
+// Uploads are stored as server-relative paths ("/uploads/services/ab12.png")
+// because the API serves them from its own origin. The client needs absolute
+// URLs, so the API origin is derived from the configured base URL.
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5294/api').replace(
+  /\/api\/?$/,
+  ''
+);
+
+/**
+ * Converts a stored image reference into something an <img> can load.
+ * Absolute/data URLs are returned untouched; relative upload paths are prefixed
+ * with the API origin. Returns null for empty values so callers can fall back.
+ */
+export function resolveImageUrl(url?: string | null): string | null {
+  if (!url) return null;
+  if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+/** Uploaded cover when the provider added one, otherwise the curated fallback. */
+export function categoryImage(category: { id: string; name: string; imageUrl?: string | null }): string {
+  return resolveImageUrl(category.imageUrl) ?? getCategoryImage(category.name, category.id);
+}
+
+export function serviceImage(service: { id: string; name: string; imageUrl?: string | null }): string {
+  return resolveImageUrl(service.imageUrl) ?? getServiceImage(service.name, service.id);
+}
+
+export function elementImage(element: {
+  id: string;
+  name: string;
+  primaryImageUrl?: string | null;
+  images?: Array<{ url: string; isPrimary: boolean }>;
+}): string {
+  const primary =
+    resolveImageUrl(element.primaryImageUrl) ??
+    resolveImageUrl(element.images?.find((image) => image.isPrimary)?.url) ??
+    resolveImageUrl(element.images?.[0]?.url);
+
+  return primary ?? getElementImage(element.name, element.id);
+}
+

@@ -52,8 +52,35 @@ export interface BookingConflict {
   endTime: string;
 }
 
-export async function deleteAvailability(id: string): Promise<void> {
-  await apiClient.delete(`/availability/${id}`);
+export interface AvailabilityInterval {
+  startTime: string;
+  endTime: string;
+}
+
+export interface RemoveAvailabilityIntervalsRequest {
+  elementId: string;
+  intervals: AvailabilityInterval[];
+}
+
+export interface RemoveAvailabilityIntervalResponse {
+  removedSlots: number;
+  trimmedSlots: number;
+  createdSlots: number;
+}
+
+/**
+ * Removes one or more intervals from an element's availability in a single request.
+ * The server trims the surrounding slot and splits it when an interval sits in the
+ * middle, so a provider can close single hours without deleting the whole day.
+ */
+export async function removeAvailabilityIntervals(
+  data: RemoveAvailabilityIntervalsRequest
+): Promise<RemoveAvailabilityIntervalResponse> {
+  const res = await apiClient.post<RemoveAvailabilityIntervalResponse>(
+    '/availability/intervals/remove',
+    data
+  );
+  return res.data;
 }
 
 export async function createBooking(data: BookingRequest): Promise<BookingResponse> {
@@ -76,10 +103,23 @@ export interface ElementRequest {
   orderIndex: number;
   price: number;
   attributes: Record<string, string>;
+  /** Optional photos uploaded with the element; the first one becomes the cover. */
+  images?: File[];
 }
 
 export async function createElement(data: ElementRequest): Promise<ElementItem> {
-  const res = await apiClient.post<ElementItem>('/elements', data);
+  // Multipart so photos can travel with the element in a single request.
+  // Attributes are sent as JSON because form binding of nested dictionaries is
+  // unreliable across clients.
+  const form = new FormData();
+  form.append('ServiceId', data.serviceId);
+  form.append('Name', data.name);
+  form.append('OrderIndex', String(data.orderIndex));
+  form.append('Price', String(data.price));
+  form.append('AttributesJson', JSON.stringify(data.attributes ?? {}));
+  (data.images ?? []).forEach((file) => form.append('Images', file));
+
+  const res = await apiClient.post<ElementItem>('/elements', form);
   return res.data;
 }
 

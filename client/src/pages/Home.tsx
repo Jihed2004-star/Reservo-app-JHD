@@ -1,8 +1,10 @@
 
+
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCategories } from '../api/catalog';
-import { getCategoryImage, HERO_IMAGE } from '../utils/images';
+import { categoryImage, HERO_IMAGE } from '../utils/images';
 import Footer from '../components/Footer';
 
 const FEATURES = [
@@ -33,7 +35,7 @@ export default function Home(){
               Book any service,<br/>on <span className="text-indigo-300">your schedule.</span>
             </h1>
             <p className="mt-4 max-w-md text-[15px] leading-6 text-slate-300">
-              Reservo brings every provider\'s real availability into one marketplace. Find it, pick a time, and you\'re booked — in seconds.
+              Reservo brings every provider&apos;s real availability into one marketplace. Find it, pick a time, and you&apos;re booked — in seconds.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link to="/categories" className="rounded-full bg-white px-6 py-3 text-sm font-bold text-slate-900 hover:bg-slate-100">Browse categories →</Link>
@@ -122,7 +124,7 @@ export default function Home(){
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               {preview.map(c=> (
                 <Link key={c.id} to={`/categories/${c.id}/services`} className="group overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50">
-                  <div className="h-40 overflow-hidden"><img src={getCategoryImage(c.name,c.id)} alt={c.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/></div>
+                  <div className="h-40 overflow-hidden"><img src={categoryImage(c)} alt={c.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/></div>
                   <div className="p-4"><div className="font-display text-sm font-bold text-slate-900">{c.name}</div><div className="mt-1 line-clamp-2 text-xs text-slate-500">{c.description ?? 'Browse services in this category.'}</div></div>
                 </Link>
               ))}
@@ -135,11 +137,78 @@ export default function Home(){
         </div>
       </section>
 
+            {/* Ready in about a minute */}
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <div className="text-center">
+          <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-700">Get started</span>
+          <h2 className="font-display mx-auto mt-3 max-w-2xl text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Ready in about a minute</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">No sales call. No onboarding queue. Create your account and make your first booking — or publish your first service — in under 60 seconds.</p>
+        </div>
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          <div className="flex flex-col rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9" cy="7" r="4" strokeLinecap="round"/><path d="M16 11l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
+            <span className="mt-3 text-xs font-extrabold uppercase tracking-widest text-indigo-600">For customers</span>
+            <h3 className="font-display mt-1 text-lg font-bold text-slate-900">Book your first slot</h3>
+            <ol className="mt-4 space-y-3 text-sm text-slate-600">
+              <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">1</span><span><strong className="text-slate-900">Sign up</strong> — email + password, 10 seconds.</span></li>
+              <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">2</span><span><strong className="text-slate-900">Pick a service</strong> — browse categories, open any element calendar.</span></li>
+              <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">3</span><span><strong className="text-slate-900">Confirm</strong> — choose your time, hit book. Done.</span></li>
+            </ol>
+            <div className="mt-6 flex flex-wrap items-center gap-2">
+              <Link to="/register" className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-black">Create account</Link>
+              <Link to="/categories" className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Browse now</Link>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">Free to join · No credit card required to browse</p>
+          </div>
+          <div className="flex flex-col rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h6" strokeLinecap="round"/></svg></span>
+            <span className="mt-3 text-xs font-extrabold uppercase tracking-widest text-emerald-600">For providers</span>
+            <h3 className="font-display mt-1 text-lg font-bold text-slate-900">Publish your inventory</h3>
+            <ol className="mt-4 space-y-3 text-sm text-slate-600">
+              <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">1</span><span><strong className="text-slate-900">Register as Provider</strong> — same sign-up, choose Provider role.</span></li>
+              <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">2</span><span><strong className="text-slate-900">Create a service & elements</strong> — name, price, calendar unit.</span></li>
+              <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">3</span><span><strong className="text-slate-900">Go live</strong> — availability is instant, bookings roll in.</span></li>
+            </ol>
+            <div className="mt-6"><Link to="/register" className="inline-flex rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Start as provider</Link></div>
+            <p className="mt-3 text-xs text-slate-400">List up to 5 elements free · Keep 100% during beta</p>
+          </div>
+          <div className="flex flex-col rounded-[24px] bg-slate-900 p-6 text-white">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-indigo-300">Timeline</span>
+            <h3 className="font-display mt-2 text-lg font-bold">From zero to booked</h3>
+            <div className="relative mt-6 space-y-0 pl-6">
+              <div className="absolute bottom-6 left-[11px] top-2 w-px bg-white/15"/>
+              <div className="relative flex gap-3 pb-5"><span className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-900">0s</span><div><div className="text-sm font-semibold">Land on Reservo</div><div className="text-xs text-slate-400">Everything&apos;s already live</div></div></div>
+              <div className="relative flex gap-3 pb-5"><span className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">15s</span><div><div className="text-sm font-semibold">Choose what you need</div><div className="text-xs text-slate-400">Category → service → calendar</div></div></div>
+              <div className="relative flex gap-3 pb-5"><span className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">45s</span><div><div className="text-sm font-semibold">Lock your time</div><div className="text-xs text-slate-400">Validated slot, instant confirmation</div></div></div>
+              <div className="relative flex gap-3"><span className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xs font-bold text-slate-900">60s</span><div><div className="text-sm font-semibold text-amber-300">You&apos;re booked</div><div className="text-xs text-slate-400">Email confirmation + calendar invite</div></div></div>
+            </div>
+            <Link to="/categories" className="mt-6 inline-flex items-center justify-center rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-900 hover:bg-slate-100">Try it now →</Link>
+          </div>
+        </div>
+      </section>
+
+
+      {/* Common questions */}
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-500">FAQ</span>
+              <h2 className="font-display mt-3 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Common questions</h2>
+              <p className="mt-1.5 max-w-md text-sm text-slate-500">Everything you need to know before you book — or list.</p>
+            </div>
+            <Link to="/categories" className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-black">Explore marketplace</Link>
+          </div>
+          <CommonQuestions />
+        </div>
+      </section>
+
+
       {/* bottom CTA */}
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="grid overflow-hidden rounded-[28px] bg-slate-900 lg:grid-cols-2">
           <div className="p-8 sm:p-10">
-            <h2 className="font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Ready to see what\'s bookable right now?</h2>
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Ready to see what&apos;s bookable right now?</h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-slate-300">Every category is run by a real provider with a live calendar. No placeholder — check availability and lock your time.</p>
             <Link to="/categories" className="mt-6 inline-flex rounded-full bg-white px-6 py-3 text-sm font-bold text-slate-900 hover:bg-slate-100">Explore marketplace</Link>
           </div>
@@ -154,3 +223,59 @@ export default function Home(){
     </div>
   );
 }
+
+const FAQ_ITEMS = [
+  {
+    q: "How does Reservo prevent double-bookings?",
+    a: "Every booking is checked against real tstzrange availability with an exclusion constraint in Postgres. If an overlapping reservation exists, the database rejects it — so no two confirmed bookings can ever share the same time.",
+  },
+  {
+    q: "Can I browse without an account?",
+    a: "Yes. Categories, services, and element calendars are public. You only need an account when you confirm a booking or publish your own service.",
+  },
+  {
+    q: "Can I cancel a booking?",
+    a: "Customers and providers can cancel confirmed bookings from My Bookings or the element page. Cancelled slots become available again instantly.",
+  },
+  {
+    q: "How does pricing work across different booking units?",
+    a: "Each service defines its BookingUnit — Hourly, Daily, or Monthly — and each element sets its own price for that unit. What you see on the calendar is what you pay for the selected interval.",
+  },
+  {
+    q: "How do reviews and ratings work?",
+    a: "After a completed booking, you can leave a star rating and comment. Element pages show the aggregate rating and all reviews for that inventory item.",
+  },
+  {
+    q: "How do I list my own service as a provider?",
+    a: "Register and choose the Provider role. Then create a service, add elements with price and attributes, and generate availability. Your inventory goes live immediately.",
+  },
+  {
+    q: "Is there a fee to use Reservo?",
+    a: "Browsing and booking are free for customers. Providers can list up to 5 elements free during beta and keep 100% of their bookings — no commissions while we validate the marketplace.",
+  },
+];
+
+function CommonQuestions() {
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <div className="mt-6 divide-y divide-slate-200 rounded-2xl border border-slate-200">
+      {FAQ_ITEMS.map((item, idx) => (
+        <div key={idx} className="bg-white first:rounded-t-2xl last:rounded-b-2xl">
+          <button
+            onClick={() => setOpen(open === idx ? null : idx)}
+            className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+          >
+            <span className="text-sm font-semibold text-slate-900">{item.q}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-bold text-slate-600">
+              {open === idx ? "−" : "+"}
+            </span>
+          </button>
+          {open === idx && (
+            <div className="px-5 pb-4 text-sm leading-6 text-slate-600">{item.a}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+

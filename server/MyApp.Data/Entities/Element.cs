@@ -20,4 +20,7 @@ public class Element
     // (e.g. { "color": "Red", "seats": "5" } for a car, { "specialty": "..." } for a stylist)
     public Dictionary<string, string> Attributes { get; set; } = new();
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Uploaded photos. At most one is primary; the rest form the gallery.</summary>
+    public List<ElementImage> Images { get; set; } = new();
 }

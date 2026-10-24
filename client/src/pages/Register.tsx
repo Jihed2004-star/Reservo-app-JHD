@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { register as registerApi } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
@@ -14,6 +14,8 @@ export default function Register() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -29,7 +31,7 @@ export default function Register() {
     try {
       const response = await registerApi({ fullName, email, password });
       login(response);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch {
       setError('Could not create account. Email may already be registered.');
     } finally {
@@ -108,7 +110,7 @@ export default function Register() {
 
       <p className="text-sm text-slate-500 mt-6 text-center">
         Already have an account?{' '}
-        <Link to="/login" className="text-rose-500 font-medium hover:text-rose-600">
+        <Link to="/login" state={{ from }} className="text-rose-500 font-medium hover:text-rose-600">
           Log in
         </Link>
       </p>

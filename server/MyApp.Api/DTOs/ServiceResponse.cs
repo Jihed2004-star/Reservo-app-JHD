@@ -10,6 +10,10 @@ public class ServiceResponse
     public string CategoryName { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+
+    /// <summary>Relative URL of the uploaded cover image, or null when none was uploaded.</summary>
+    public string? ImageUrl { get; set; }
+
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public BookingUnit BookingUnit { get; set; }

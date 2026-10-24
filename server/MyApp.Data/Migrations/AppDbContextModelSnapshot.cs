@@ -88,6 +88,9 @@ namespace MyApp.Data.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -135,6 +138,37 @@ namespace MyApp.Data.Migrations
                     b.HasIndex("ServiceId");
 
                     b.ToTable("Elements");
+                });
+
+            modelBuilder.Entity("MyApp.Data.Entities.ElementImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ElementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ElementId", "DisplayOrder");
+
+                    b.HasIndex("ElementId", "IsPrimary");
+
+                    b.ToTable("ElementImages");
                 });
 
             modelBuilder.Entity("MyApp.Data.Entities.Review", b =>
@@ -192,6 +226,9 @@ namespace MyApp.Data.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -228,8 +265,14 @@ namespace MyApp.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
 
                     b.Property<string>("Role")
@@ -288,6 +331,17 @@ namespace MyApp.Data.Migrations
                     b.Navigation("Service");
                 });
 
+            modelBuilder.Entity("MyApp.Data.Entities.ElementImage", b =>
+                {
+                    b.HasOne("MyApp.Data.Entities.Element", "Element")
+                        .WithMany("Images")
+                        .HasForeignKey("ElementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Element");
+                });
+
             modelBuilder.Entity("MyApp.Data.Entities.Review", b =>
                 {
                     b.HasOne("MyApp.Data.Entities.Booking", "Booking")
@@ -332,6 +386,11 @@ namespace MyApp.Data.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Provider");
+                });
+
+            modelBuilder.Entity("MyApp.Data.Entities.Element", b =>
+                {
+                    b.Navigation("Images");
                 });
 
             modelBuilder.Entity("MyApp.Data.Entities.Service", b =>

@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { getCategories } from '../api/catalog';
 import { CategoryCard } from '../components/cards/CategoryCard';
 import { CardSkeletonGrid } from '../components/ui/CardSkeleton';
-import Footer from '../components/Footer';
 
 export default function Categories(){
   const [search,setSearch]=useState('');
@@ -15,7 +14,7 @@ export default function Categories(){
     return categories.filter(c=> c.name.toLowerCase().includes(q) || (c.description??'').toLowerCase().includes(q));
   },[categories,search]);
   return (
-    <div className="bg-[#fcfcfd] min-h-screen">
+    <div className="bg-[#f8fafc] min-h-screen">
       <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
         <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white">
           <div className="grid lg:grid-cols-[1.1fr_.9fr]">
@@ -49,7 +48,6 @@ export default function Categories(){
           {!isLoading && !error && filtered.length>0 && (<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(c=> <CategoryCard key={c.id} category={c} />)}</div>)}
         </div>
       </div>
-      <Footer/>
     </div>
   );
 }

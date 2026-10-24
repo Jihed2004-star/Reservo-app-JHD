@@ -1,0 +1,54 @@
+const FAQ_ITEMS = [
+  {
+    q: "How does Reservo prevent double-bookings?",
+    a: "Every booking is checked against real tstzrange availability with an exclusion constraint in Postgres. If an overlapping reservation exists, the database rejects it — so no two confirmed bookings can ever share the same time.",
+  },
+  {
+    q: "Can I browse without an account?",
+    a: "Yes. Categories, services, and element calendars are public. You only need an account when you confirm a booking or publish your own service.",
+  },
+  {
+    q: "Can I cancel a booking?",
+    a: "Customers and providers can cancel confirmed bookings from My Bookings or the element page. Cancelled slots become available again instantly.",
+  },
+  {
+    q: "How does pricing work across different booking units?",
+    a: "Each service defines its BookingUnit — Hourly, Daily, or Monthly — and each element sets its own price for that unit. What you see on the calendar is what you pay for the selected interval.",
+  },
+  {
+    q: "How do reviews and ratings work?",
+    a: "After a completed booking, you can leave a star rating and comment. Element pages show the aggregate rating and all reviews for that inventory item.",
+  },
+  {
+    q: "How do I list my own service as a provider?",
+    a: "Register and choose the Provider role. Then create a service, add elements with price and attributes, and generate availability. Your inventory goes live immediately.",
+  },
+  {
+    q: "Is there a fee to use Reservo?",
+    a: "Browsing and booking are free for customers. Providers can list up to 5 elements free during beta and keep 100% of their bookings — no commissions while we validate the marketplace.",
+  },
+];
+
+function CommonQuestions() {
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <div className="mt-6 divide-y divide-slate-200 rounded-2xl border border-slate-200">
+      {FAQ_ITEMS.map((item, idx) => (
+        <div key={idx} className="bg-white first:rounded-t-2xl last:rounded-b-2xl">
+          <button
+            onClick={() => setOpen(open === idx ? null : idx)}
+            className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+          >
+            <span className="text-sm font-semibold text-slate-900">{item.q}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-bold text-slate-600">
+              {open === idx ? "−" : "+"}
+            </span>
+          </button>
+          {open === idx && (
+            <div className="px-5 pb-4 text-sm leading-6 text-slate-600">{item.a}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

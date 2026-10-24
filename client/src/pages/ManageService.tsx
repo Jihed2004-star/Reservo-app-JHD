@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getServiceById, toggleServiceActive, deleteService } from '../api/catalog';
+import { getServiceById, toggleServiceActive, deleteService, updateService } from '../api/catalog';
 import { createElement } from '../api/elements';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from '../components/ui/Badge';
+import { ImageUploader, MultiImageUploader } from '../components/ui/ImageUploader';
 import { ListRowSkeletonGroup } from '../components/ui/ListRowSkeleton';
-import Footer from '../components/Footer';
+import { elementImage } from '../utils/images';
 
 export default function ManageService() {
   const { id } = useParams<{ id: string }>();
@@ -16,8 +17,12 @@ export default function ManageService() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [attrPairs, setAttrPairs] = useState([{ key: '', value: '' }]);
+  const [elementImages, setElementImages] = useState<File[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   const { data: service, isLoading, error } = useQuery({
     queryKey: ['service', id],
@@ -32,6 +37,7 @@ export default function ManageService() {
       setName('');
       setPrice('');
       setAttrPairs([{ key: '', value: '' }]);
+      setElementImages([]);
       setShowForm(false);
       setFormError(null);
     },
@@ -39,6 +45,37 @@ export default function ManageService() {
       setFormError(err?.response?.data?.message ?? 'Could not create element.');
     },
   });
+
+  const coverMutation = useMutation({
+    mutationFn: (data: Parameters<typeof updateService>[1]) => updateService(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service', id] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      setCoverFile(null);
+      setRemoveCover(false);
+      setCoverError(null);
+    },
+    onError: (err: any) => {
+      setCoverError(err?.response?.data?.message ?? 'Could not update the cover image.');
+    },
+  });
+
+  function handleCoverSave() {
+    if (!service) return;
+    if (!coverFile && !removeCover) {
+      setCoverError('Pick an image or remove the current one first.');
+      return;
+    }
+    coverMutation.mutate({
+      categoryId: service.categoryId,
+      name: service.name,
+      description: service.description,
+      isActive: service.isActive,
+      bookingUnit: service.bookingUnit,
+      image: coverFile,
+      removeImage: removeCover,
+    });
+  }
 
   const navigate = useNavigate();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -78,6 +115,7 @@ export default function ManageService() {
       orderIndex: service?.elements.length ?? 0,
       price: parseFloat(price),
       attributes,
+      images: elementImages,
     });
   }
 
@@ -87,32 +125,30 @@ export default function ManageService() {
 
   if (!user || (user.role !== 'Provider' && user.role !== 'Admin')) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
           <p className="text-slate-500">You don't have access to this page.</p>
         </div>
-        <Footer />
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
           <div className="h-8 w-64 animate-pulse rounded bg-slate-100" />
           <div className="mt-8">
             <ListRowSkeletonGroup count={3} />
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   if (error || !service) {
     return (
-      <div className="min-h-screen bg-[#fcfcfd]">
+      <div className="min-h-screen bg-[#f8fafc]">
         <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-10 text-center">
             <p className="font-semibold text-rose-700">Couldn't load this service</p>
@@ -121,13 +157,12 @@ export default function ManageService() {
             </p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd]">
+    <div className="min-h-screen bg-[#f8fafc]">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -166,6 +201,32 @@ export default function ManageService() {
         </div>
 
         {deleteError && <p className="mt-4 text-sm text-amber-600">{deleteError}</p>}
+
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-900">Cover image</h2>
+          <div className="mt-3">
+            <ImageUploader
+              label="Shown on the service card"
+              existingUrl={service.imageUrl}
+              file={coverFile}
+              onFileChange={(next) => {
+                setCoverFile(next);
+                if (next) setRemoveCover(false);
+              }}
+              removedExisting={removeCover}
+              onRemoveExistingChange={setRemoveCover}
+              disabled={coverMutation.isPending}
+            />
+          </div>
+          <button
+            onClick={handleCoverSave}
+            disabled={coverMutation.isPending || (!coverFile && !removeCover)}
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {coverMutation.isPending ? 'Saving...' : 'Save cover'}
+          </button>
+          {coverError && <p className="mt-3 text-sm text-amber-600">{coverError}</p>}
+        </div>
 
         <div className="mt-8 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">Elements</h2>
@@ -221,6 +282,13 @@ export default function ManageService() {
               + Add attribute
             </button>
 
+            <MultiImageUploader
+              label="Photos"
+              files={elementImages}
+              onFilesChange={setElementImages}
+              disabled={mutation.isPending}
+            />
+
             <button
               onClick={handleSubmit}
               disabled={mutation.isPending}
@@ -240,30 +308,44 @@ export default function ManageService() {
               <p className="mt-1 text-sm text-slate-500">Add one above to get started.</p>
             </div>
           ) : (
-            <ul className="space-y-4">
-              {service.elements.map((el) => (
-                <li
-                  key={el.id}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-900">{el.name}</p>
-                    <p className="text-sm text-slate-500">${el.price}</p>
-                  </div>
-                  <Link
-                    to={`/provider/elements/${el.id}`}
-                    className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                  >
-                    Manage availability →
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-widest text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Element</th>
+                      <th className="px-4 py-3 font-semibold">Price</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                      <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {service.elements.map((el) => (
+                      <tr key={el.id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={elementImage(el)}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                            />
+                            <span className="font-medium text-slate-900">{el.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">${Number(el.price).toFixed(2)}</td>
+                        <td className="px-4 py-3"><StatusBadge isActive={el.isActive} /></td>
+                        <td className="px-4 py-3 text-right">
+                          <Link to={`/provider/elements/${el.id}`} className="inline-flex rounded-full bg-slate-900 px-3.5 py-1 text-xs font-semibold text-white hover:bg-black">Manage →</Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

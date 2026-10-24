@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<Element> Elements => Set<Element>();
+    public DbSet<ElementImage> ElementImages => Set<ElementImage>();
     public DbSet<Booking> Bookings => Set<Booking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -95,6 +96,19 @@ public class AppDbContext : DbContext
             .WithMany(s => s.Elements)
             .HasForeignKey(e => e.ServiceId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ElementImage>()
+            .HasOne(i => i.Element)
+            .WithMany(e => e.Images)
+            .HasForeignKey(i => i.ElementId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // The gallery is always read ordered, and cover lookups filter on IsPrimary.
+        modelBuilder.Entity<ElementImage>()
+            .HasIndex(i => new { i.ElementId, i.DisplayOrder });
+
+        modelBuilder.Entity<ElementImage>()
+            .HasIndex(i => new { i.ElementId, i.IsPrimary });
 
         modelBuilder.Entity<Booking>()
             .HasOne(b => b.User)
