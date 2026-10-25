@@ -90,6 +90,7 @@ jobs:
               ${{ env.DOCKER_IMAGE_API }}:latest
 
             echo "=== 4. Redeploying Frontend Client container ==="
+            
             docker rm -f reservo-client || true
             docker run -d \
               --name reservo-client \
